@@ -87,7 +87,6 @@ button {
 button:hover {
   background-color: var(--primary-dark);
 }
-}
 button:focus,
 button:focus-visible {
   outline: 2px solid var(--primary-light);

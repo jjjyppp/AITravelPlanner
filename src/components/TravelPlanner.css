@@ -1,0 +1,137 @@
+/* TravelPlanner.css - 旅行规划组件样式 */
+
+/* 打字效果光标 */
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background-color: #1976d2;
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 表单输入框焦点效果 */
+.MuiTextField-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #1976d2;
+  border-width: 2px;
+}
+
+/* 按钮悬停效果增强 */
+.MuiButton-containedPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+  transition: all 0.2s ease;
+}
+
+.MuiButton-containedPrimary:active {
+  transform: translateY(0);
+}
+
+/* 结果纸张样式增强 */
+.result-paper {
+  transition: all 0.3s ease;
+}
+
+/* 结果内容样式 */
+.result-content {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: #333;
+}
+
+.result-content p {
+  margin-bottom: 1em;
+  text-align: justify;
+}
+
+.result-content h2 {
+  margin-top: 2em;
+  margin-bottom: 1em;
+  color: #1565c0;
+  border-bottom: 2px solid #e3f2fd;
+  padding-bottom: 0.3em;
+  font-size: 1.5rem;
+}
+
+.result-content h3 {
+  margin-top: 2em;
+  margin-bottom: 0.75em;
+  color: #1976d2;
+  font-size: 1.3rem;
+}
+
+.result-content h4 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  color: #1976d2;
+  font-size: 1.1rem;
+}
+
+.result-content ul,
+.result-content ol {
+  margin-top: 0.5em;
+  margin-bottom: 1.5em;
+  padding-left: 1.5em;
+}
+
+.result-content li {
+  margin-bottom: 0.5em;
+  line-height: 1.6;
+}
+
+.result-content strong {
+  font-weight: 600;
+  color: #1a237e;
+}
+
+.result-content em {
+  font-style: italic;
+  color: #424242;
+}
+
+/* 结果内容动画效果 */
+.result-content {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 响应式调整 */
+@media (max-width: 600px) {
+  .MuiContainer-root {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  
+  .MuiCardContent-root {
+    padding: 0 !important;
+  }
+  
+  .MuiTabs-root {
+    margin-bottom: 24px !important;
+  }
+}
+
+/* 加载状态样式 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+/* 标签页指示器样式 */
+.MuiTabs-indicator {
+  background-color: #1976d2;
+  height: 3px;
+}

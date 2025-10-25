@@ -9,6 +9,8 @@ import RegisterPage from './pages/RegisterPage'
 import ItineraryDetailPage from './pages/ItineraryDetailPage'
 import MyTripsPage from './pages/MyTripsPage'
 import BudgetPage from './pages/BudgetPage'
+import TravelPlanner from './components/TravelPlanner'
+// 语音相关组件已移除
 
 function App() {
   // 模拟用户登录状态
@@ -39,6 +41,7 @@ function App() {
             
             <nav className="app-nav">
               <Link to="/">首页</Link>
+              <Link to="/travel-planner">旅行规划</Link>
               
               {isLoggedIn ? (
                 // 已登录用户菜单
@@ -76,6 +79,8 @@ function App() {
             <Route path="/itinerary/:id" element={<ItineraryDetailPage />} />
             <Route path="/my-trips" element={<MyTripsPage isLoggedIn={isLoggedIn} />} />
             <Route path="/budget" element={<BudgetPage isLoggedIn={isLoggedIn} />} />
+            <Route path="/travel-planner" element={<TravelPlanner />} />
+            {/* 语音相关路由已移除 */}
           </Routes>
         </main>
 

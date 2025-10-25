@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bar } from 'react-chartjs-2'
+import SpeechRecognition from '../components/SpeechRecognition'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -36,8 +37,8 @@ function BudgetPage({ isLoggedIn }) {
     tripId: '1',
     notes: ''
   })
-  const [isRecording, setIsRecording] = useState(false)
   const [activeTrip, setActiveTrip] = useState('1')
+  const [currentSpeechText, setCurrentSpeechText] = useState('')
 
   // 模拟的行程选项
   const tripOptions = [
@@ -49,36 +50,19 @@ function BudgetPage({ isLoggedIn }) {
   // 支出类别选项
   const categories = ['餐饮', '交通', '住宿', '门票', '购物', '其他']
 
-  // 处理语音记录支出
-  const startVoiceRecording = () => {
-    setIsRecording(true)
+  // 处理语音识别结果
+  const handleSpeechResult = (text, isReplace = false) => {
+    // 更新当前识别结果显示
+    setCurrentSpeechText(text)
     
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('您的浏览器不支持语音识别功能')
-      setIsRecording(false)
-      return
-    }
+    // 解析语音输入
+    parseExpenseVoiceInput(text)
+  }
 
-    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition
-    const recognition = new SpeechRecognition()
-
-    recognition.lang = 'zh-CN'
-    recognition.interimResults = false
-
-    recognition.onresult = (event) => {
-      const speechResult = event.results[0][0].transcript
-      parseExpenseVoiceInput(speechResult)
-    }
-
-    recognition.onend = () => {
-      setIsRecording(false)
-    }
-
-    recognition.onerror = () => {
-      setIsRecording(false)
-    }
-
-    recognition.start()
+  // 处理语音识别错误
+  const handleSpeechError = (error) => {
+    console.error('语音识别错误:', error)
+    alert('语音识别出错: ' + (error.message || '未知错误'))
   }
 
   // 解析语音输入的支出信息
@@ -290,16 +274,23 @@ function BudgetPage({ isLoggedIn }) {
               rows="2"
             />
           </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
             <button type="submit">添加支出</button>
-            <button 
-              type="button"
-              className={`voice-input-button ${isRecording ? 'recording' : ''}`}
-              onClick={startVoiceRecording}
-              disabled={isRecording}
-            >
-              {isRecording ? '🎙️ 正在录音...' : '🎙️ 语音记录'}
-            </button>
+            <div style={{ flex: 1 }}>
+              <SpeechRecognition
+                onResult={handleSpeechResult}
+                onError={handleSpeechError}
+                placeholder="语音记录支出信息，如：餐饮 50元"
+              />
+              
+              {/* 实时识别结果显示 */}
+              {currentSpeechText && (
+                <div className="speech-realtime-result">
+                  <div className="result-label">🎙️ 实时识别：</div>
+                  <div className="result-text">{currentSpeechText}</div>
+                </div>
+              )}
+            </div>
           </div>
         </form>
       </div>

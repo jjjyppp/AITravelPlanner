@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音识别修复测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.recording { background: #f8d7da; color: #721c24; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.disconnected { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .result {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            min-height: 50px;
+            border: 1px solid #ced4da;
+        }
+        .log {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 语音识别修复测试</h1>
+        
+        <div class="status" id="status">未连接</div>
+        
+        <button id="connectBtn" onclick="connect()">连接WebSocket</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>断开连接</button>
+        <button id="startBtn" onclick="startRecording()" disabled>开始录音</button>
+        <button id="stopBtn" onclick="stopRecording()" disabled>停止录音</button>
+        
+        <div class="result" id="result">等待语音输入...</div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+        let isRecording = false;
+        let audioContext = null;
+        let audioStream = null;
+        let frameTimer = null;
+        let audioBuffer = [];
+        let isFirstFrame = true;
+
+        const CONFIG = {
+            APPID: 'f7ae70c1',
+            APIKey: '557206bc97aa567d51c22e37e2faa9b2',
+            APISecret: 'NTdmOGIyNjU3MWNkYzQzOGNmNWFjZGNi',
+            WS_URL: 'wss://iat-api.xfyun.cn/v2/iat',
+            SAMPLE_RATE: 16000,
+            FRAME_SIZE: 1280,
+            FRAME_INTERVAL: 40
+        };
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(status, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = status;
+            statusDiv.className = `status ${className}`;
+        }
+
+        function updateButtons() {
+            document.getElementById('connectBtn').disabled = isConnected;
+            document.getElementById('disconnectBtn').disabled = !isConnected;
+            document.getElementById('startBtn').disabled = !isConnected || isRecording;
+            document.getElementById('stopBtn').disabled = !isRecording;
+        }
+
+        // 生成鉴权URL（简化版，实际应该使用HMAC-SHA256）
+        async function generateAuthUrl() {
+            const date = new Date().toUTCString();
+            const host = 'iat-api.xfyun.cn';
+            const path = '/v2/iat';
+            
+            // 简化的鉴权（实际应该使用HMAC-SHA256）
+            const authString = `api_key="${CONFIG.APIKey}", algorithm="hmac-sha256", headers="host date request-line", signature="test"`;
+            const authorization = btoa(authString);
+            
+            return `${CONFIG.WS_URL}?host=${encodeURIComponent(host)}&date=${encodeURIComponent(date)}&authorization=${encodeURIComponent(authorization)}`;
+        }
+
+        async function connect() {
+            try {
+                log('开始连接WebSocket...');
+                updateStatus('连接中...', 'connecting');
+                
+                const authUrl = await generateAuthUrl();
+                log(`连接URL: ${authUrl}`);
+                
+                ws = new WebSocket(authUrl);
+                
+                ws.onopen = () => {
+                    isConnected = true;
+                    updateStatus('已连接', 'connected');
+                    updateButtons();
+                    log('WebSocket连接成功');
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        log(`收到消息: ${JSON.stringify(message, null, 2)}`);
+                        
+                        if (message.code !== 0) {
+                            log(`API错误: ${message.message} (代码: ${message.code})`);
+                            updateStatus(`错误: ${message.message}`, 'error');
+                            return;
+                        }
+                        
+                        if (message.data && message.data.result) {
+                            const result = message.data.result;
+                            const text = result.ws?.map(item => item.cw?.map(cw => cw.w).join('')).join('') || '';
+                            
+                            if (text) {
+                                document.getElementById('result').textContent = text;
+                                log(`识别结果: ${text}`);
+                            }
+                        }
+                    } catch (error) {
+                        log(`解析消息失败: ${error.message}`);
+                    }
+                };
+                
+                ws.onclose = () => {
+                    isConnected = false;
+                    updateStatus('连接已断开', 'disconnected');
+                    updateButtons();
+                    log('WebSocket连接已关闭');
+                };
+                
+                ws.onerror = (error) => {
+                    log(`WebSocket错误: ${error}`);
+                    updateStatus('连接错误', 'error');
+                };
+                
+            } catch (error) {
+                log(`连接失败: ${error.message}`);
+                updateStatus('连接失败', 'error');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            isConnected = false;
+            updateStatus('已断开', 'disconnected');
+            updateButtons();
+            log('主动断开连接');
+        }
+
+        // 发送第一帧（建立会话）
+        function sendFirstFrame() {
+            if (!isConnected || !ws) {
+                log('WebSocket未连接，无法发送第一帧');
+                return;
+            }
+
+            const data = {
+                common: {
+                    app_id: CONFIG.APPID
+                },
+                business: {
+                    language: 'zh_cn',
+                    domain: 'iat',
+                    accent: 'mandarin',
+                    vinfo: 1,
+                    vad_eos: 10000,
+                    dwa: 'wpgs',
+                    ptt: 1,
+                    pcm: 1,
+                    ltc: 1,
+                    rlang: 'zh-cn'
+                },
+                data: {
+                    status: 0, // 第一帧
+                    format: `audio/L16;rate=${CONFIG.SAMPLE_RATE}`,
+                    encoding: 'raw',
+                    audio: '' // 空的音频数据
+                }
+            };
+
+            ws.send(JSON.stringify(data));
+            log('发送第一帧建立会话');
+            isFirstFrame = false;
+        }
+
+        async function startRecording() {
+            try {
+                log('开始录音...');
+                updateStatus('录音中...', 'recording');
+                
+                // 发送第一帧建立会话
+                sendFirstFrame();
+                
+                // 获取麦克风权限
+                audioStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: CONFIG.SAMPLE_RATE,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+
+                // 创建AudioContext
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: CONFIG.SAMPLE_RATE
+                });
+
+                // 创建音频源
+                const source = audioContext.createMediaStreamSource(audioStream);
+                
+                // 创建ScriptProcessorNode处理音频数据
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
+                
+                processor.onaudioprocess = (event) => {
+                    if (isRecording) {
+                        const inputBuffer = event.inputBuffer;
+                        const inputData = inputBuffer.getChannelData(0);
+                        
+                        // 转换为16位PCM
+                        const pcmData = new Int16Array(inputData.length);
+                        for (let i = 0; i < inputData.length; i++) {
+                            pcmData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                        }
+                        
+                        // 将音频数据添加到缓冲区
+                        audioBuffer.push(...pcmData);
+                    }
+                };
+                
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                
+                // 启动定时发送音频数据
+                startAudioTransmission();
+                
+                isRecording = true;
+                updateButtons();
+                log('录音已开始');
+                
+            } catch (error) {
+                log(`开始录音失败: ${error.message}`);
+                updateStatus('录音失败', 'error');
+            }
+        }
+
+        function startAudioTransmission() {
+            frameTimer = setInterval(() => {
+                if (audioBuffer.length >= CONFIG.FRAME_SIZE) {
+                    // 取出一个完整帧的数据
+                    const frameData = audioBuffer.splice(0, CONFIG.FRAME_SIZE);
+                    sendAudioData(frameData);
+                }
+            }, CONFIG.FRAME_INTERVAL);
+        }
+
+        function sendAudioData(audioData) {
+            if (!isConnected || !ws) {
+                log('WebSocket未连接，无法发送音频数据');
+                return;
+            }
+
+            const data = {
+                data: {
+                    status: 1, // 中间帧
+                    format: `audio/L16;rate=${CONFIG.SAMPLE_RATE}`,
+                    encoding: 'raw',
+                    audio: btoa(String.fromCharCode(...audioData))
+                }
+            };
+
+            ws.send(JSON.stringify(data));
+            log(`发送音频数据: ${audioData.length} 字节`);
+        }
+
+        function stopRecording() {
+            log('停止录音...');
+            isRecording = false;
+            
+            // 停止音频传输
+            if (frameTimer) {
+                clearInterval(frameTimer);
+                frameTimer = null;
+            }
+            
+            // 发送剩余的音频数据
+            if (audioBuffer.length > 0) {
+                sendAudioData(audioBuffer);
+                audioBuffer = [];
+            }
+            
+            // 发送结束信号
+            if (ws && isConnected) {
+                const endData = {
+                    data: {
+                        status: 2
+                    }
+                };
+                ws.send(JSON.stringify(endData));
+                log('发送结束信号');
+            }
+            
+            // 停止音频流
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop());
+                audioStream = null;
+            }
+            
+            // 关闭AudioContext
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            updateStatus('已连接', 'connected');
+            updateButtons();
+            log('录音已停止');
+        }
+
+        // 初始化
+        updateButtons();
+        log('页面加载完成，准备测试修复后的语音识别功能');
+    </script>
+</body>
+</html>

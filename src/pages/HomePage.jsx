@@ -1,62 +1,44 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import SpeechRecognition from '../components/SpeechRecognition'
 
 function HomePage() {
-  const [destination, setDestination] = useState('')
-  const [days, setDays] = useState('')
-  const [budget, setBudget] = useState('')
-  const [travelers, setTravelers] = useState('')
-  const [preferences, setPreferences] = useState('')
+    // 旅行基本信息
+    const [destination, setDestination] = useState('')
+    const [days, setDays] = useState('')
+    const [startDate, setStartDate] = useState('')
+    const [endDate, setEndDate] = useState('')
+    const [travelers, setTravelers] = useState('')
+    const [budget, setBudget] = useState('')
+    
+    // 日期相关状态已定义在上方
+    
+    const [preferences, setPreferences] = useState('')
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('')
-  const [isRecording, setIsRecording] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [speechText, setSpeechText] = useState('')
+  const [currentSpeechText, setCurrentSpeechText] = useState('')
   const navigate = useNavigate()
 
-  // 语音识别功能
-  const startVoiceRecognition = () => {
-    setIsRecording(true)
-    setSpeechText('正在聆听...')
-
-    // 检查浏览器是否支持语音识别
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('您的浏览器不支持语音识别功能，请使用Chrome或Edge浏览器。')
-      setIsRecording(false)
-      setSpeechText('')
-      return
+  // 处理语音识别结果
+  const handleSpeechResult = (text, isReplace = false) => {
+    // 更新当前识别结果显示
+    setCurrentSpeechText(text)
+    
+    if (isReplace) {
+      // 动态修正：替换当前输入框内容
+      setNaturalLanguageInput(text)
+    } else {
+      // 追加结果到输入框
+      setNaturalLanguageInput(prev => prev + text)
     }
+    // 自动解析语音输入并填充表单
+    parseNaturalLanguage(text)
+  }
 
-    // 创建语音识别实例
-    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition
-    const recognition = new SpeechRecognition()
-
-    recognition.lang = 'zh-CN'
-    recognition.interimResults = false
-    recognition.maxAlternatives = 1
-
-    // 识别结果处理
-    recognition.onresult = (event) => {
-      const speechResult = event.results[0][0].transcript
-      setSpeechText(speechResult)
-      
-      // 尝试解析语音输入并填充表单
-      parseSpeechInput(speechResult)
-    }
-
-    // 识别结束处理
-    recognition.onend = () => {
-      setIsRecording(false)
-    }
-
-    // 识别错误处理
-    recognition.onerror = (event) => {
-      console.error('语音识别错误:', event.error)
-      setIsRecording(false)
-      setSpeechText('语音识别出错，请重试')
-    }
-
-    // 开始语音识别
-    recognition.start()
+  // 处理语音识别错误
+  const handleSpeechError = (error) => {
+    console.error('语音识别错误:', error)
+    alert('语音识别出错: ' + (error.message || '未知错误'))
   }
 
   // 解析自然语言输入（适用于文本和语音）
@@ -151,10 +133,6 @@ function HomePage() {
     }
   }
   
-  // 解析语音输入（调用通用解析函数）
-  const parseSpeechInput = (text) => {
-    parseNaturalLanguage(text)
-  }
   
   // 处理自然语言输入
   const handleNaturalLanguageInput = (e) => {
@@ -168,26 +146,64 @@ function HomePage() {
   }
 
   // 生成旅行计划
-  const generateItinerary = (e) => {
+  const generateItinerary = async (e) => {
     e.preventDefault()
     
-    if (!naturalLanguageInput.trim()) {
-      alert('请在自然语言输入框中描述您的旅行需求')
+    // 检查用户是否至少填写了表单或自然语言输入
+    if (!naturalLanguageInput.trim() && !destination) {
+      alert('请填写旅行需求，可以通过表单填写或在自然语言输入框中描述')
       return
     }
     
-    // 解析用户输入的自然语言内容
-    parseNaturalLanguage(naturalLanguageInput)
+    // 如果有自然语言输入，解析它
+    if (naturalLanguageInput.trim()) {
+      parseNaturalLanguage(naturalLanguageInput)
+    }
 
     setLoading(true)
 
-    // 模拟API调用延迟
-    setTimeout(() => {
+    try {
+      // 计算日期范围的天数
+      let daysValue = days || 3;
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end - start);
+        daysValue = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 包括开始日期
+      }
+      
+      // 构建旅行信息对象
+      const travelInfo = {
+        destination: destination,
+        days: daysValue,
+        people: 1, // 暂时设置默认值1
+        budget: budget || '不限',
+        preferences: preferences || '',
+        startDate: startDate,
+        endDate: endDate
+      }
+      
+      // 导入LLMService
+      const LLMService = (await import('../services/llmService.js')).default
+      
+      // 生成行程内容
+      const itineraryContent = await LLMService.generateResponse(
+        `请帮我生成具体的旅行规划，我的旅行需求为：\n目的地：${travelInfo.destination}\n天数：${travelInfo.days}天\n人数：${travelInfo.people}人\n预算：${travelInfo.budget}\n偏好：${travelInfo.preferences}`
+      )
+      
       setLoading(false)
-      // 创建一个模拟的行程ID并导航到行程详情页
-      const mockItineraryId = '1'
-      navigate(`/itinerary/${mockItineraryId}`)
-    }, 2000)
+      
+      // 将行程内容存储在localStorage中，以便详情页访问
+      localStorage.setItem('currentItineraryContent', itineraryContent)
+      localStorage.setItem('currentTravelInfo', JSON.stringify(travelInfo))
+      
+      // 导航到行程详情页
+      navigate(`/itinerary/1`)
+    } catch (error) {
+      setLoading(false)
+      console.error('生成行程失败:', error)
+      alert('生成行程失败，请稍后重试')
+    }
   }
 
   return (
@@ -203,36 +219,119 @@ function HomePage() {
         <h2 className="mb-3">开始规划你的旅程</h2>
         
         <form onSubmit={generateItinerary}>
-          {/* 仅保留自然语言输入框 */}
+          {/* 旅行规划表单 - 移自TravelPlanner组件 */}
+          <div className="travel-planner-form mb-4 p-4 border rounded shadow-sm bg-light">
+            <h3 className="mb-2 text-primary">📝 填写旅行需求（可选）</h3>
+            <div className="form-row">
+              <div className="form-group col-md-6">
+                <label htmlFor="destination" className="form-label">目的地 **</label>
+                <input
+                  type="text"
+                  id="destination"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  placeholder=""
+                  className="form-control"
+                />
+              </div>
+              <div className="form-group col-md-6">
+                <label htmlFor="travelers" className="form-label">人数 **</label>
+                <input
+                  type="number"
+                  id="travelers"
+                  value={travelers}
+                  onChange={(e) => setTravelers(e.target.value)}
+                  placeholder=""
+                  className="form-control"
+                  min="1"
+                />
+              </div>
+            </div>
+            
+            <div className="form-row mt-3">
+              <div className="form-group col-md-6">
+                <label htmlFor="startDate" className="form-label">开始日期 **</label>
+                <input
+                  type="date"
+                  id="startDate"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="form-control"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div className="form-group col-md-6">
+                <label htmlFor="endDate" className="form-label">结束日期 **</label>
+                <input
+                  type="date"
+                  id="endDate"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="form-control"
+                  min={startDate}
+                />
+              </div>
+            </div>
+            
+            <div className="form-row mt-3">
+              <div className="form-group col-md-12">
+                <label htmlFor="preferences" className="form-label">兴趣偏好</label>
+                <input
+                  type="text"
+                  id="preferences"
+                  value={preferences}
+                  onChange={(e) => setPreferences(e.target.value)}
+                  placeholder=""
+                  className="form-control"
+                />
+              </div>
+            </div>
+            
+            <div className="form-row mt-3">
+              <div className="form-group col-md-12">
+                <label htmlFor="budget" className="form-label">预算范围</label>
+                <input
+                  type="text"
+                  id="budget"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  placeholder=""
+                  className="form-control"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* 自然语言输入框 */}
           <div className="mb-3">
+            <h3 className="mb-2">💬 或用自然语言描述（可选）</h3>
             <textarea
               id="naturalLanguage"
               value={naturalLanguageInput}
               onChange={handleNaturalLanguageInput}
               placeholder="请用一句话描述您的旅行需求，例如：我想去日本，5天，预算1万元，喜欢美食和动漫，带孩子"
               rows="4"
-              className="natural-language-input"
-              required
+              className="form-control natural-language-input"
             />
             <div className="input-hint mt-1">
-              💡 提示：请尽量包含目的地、天数、预算、人数和旅行偏好等信息，以便我们生成更符合您期望的旅行计划
+              💡 提示：可以选择填写表单，或使用自然语言描述，或两者结合
             </div>
           </div>
           
-    
-          
           {/* 语音输入区域 */}
           <div className="mb-3">
-            <button 
-              type="button"
-              className={`voice-input-button ${isRecording ? 'recording' : ''}`}
-              onClick={startVoiceRecognition}
-              disabled={isRecording}
-            >
-              {isRecording ? '🎙️ 正在录音...' : '🎙️ 使用语音输入需求'}
-            </button>
-            {speechText && (
-              <p className="mt-2">识别结果: {speechText}</p>
+            <SpeechRecognition
+              onResult={handleSpeechResult}
+              onError={handleSpeechError}
+              placeholder="点击开始语音输入您的旅行需求..."
+            />
+            
+            {/* 实时识别结果显示 */}
+            {currentSpeechText && (
+              <div className="speech-realtime-result">
+                <div className="result-label">🎙️ 实时识别：</div>
+                <div className="result-text">{currentSpeechText}</div>
+              </div>
             )}
           </div>
           
