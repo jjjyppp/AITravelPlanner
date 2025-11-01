@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import './App.css'
+import { AuthProvider } from './contexts/AuthContext'
+import { ItineraryProvider } from './contexts/ItineraryContext'
 
 // 导入页面组件
 import HomePage from './pages/HomePage'
@@ -30,8 +32,10 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="app">
+    <AuthProvider>
+      <ItineraryProvider>
+        <Router>
+          <div className="app">
         {/* 应用头部 */}
         <header className="app-header">
           <div className="header-container">
@@ -97,6 +101,8 @@ function App() {
         </footer>
       </div>
     </Router>
+      </ItineraryProvider>
+    </AuthProvider>
   )
 }
 

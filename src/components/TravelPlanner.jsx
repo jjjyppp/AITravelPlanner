@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Container, Typography, Box, TextField, Button, Grid, Card, CardContent, Tabs, Tab, CircularProgress, Paper, Divider } from '@mui/material';
+import { Container, Typography, Box, TextField, Button, Grid, Card, CardContent, Tabs, Tab, CircularProgress, Paper, Divider, Snackbar, Alert } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import LLMService from '../services/llmService';
+import { useAuth } from '../contexts/AuthContext';
+import { useItinerary } from '../contexts/ItineraryContext';
 import './TravelPlanner.css';
 
 /**
@@ -8,9 +11,15 @@ import './TravelPlanner.css';
  * 使用大语言模型生成行程规划和费用预算
  */
 const TravelPlanner = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { saveItinerary } = useItinerary();
+  
   // 状态管理
   const [activeTab, setActiveTab] = useState(0); // 0: 行程规划, 1: 预算估计
   const [isLoading, setIsLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [result, setResult] = useState(`# 北京三日游行程规划
 
 ## 第一天：市区经典景点
@@ -409,6 +418,52 @@ const TravelPlanner = () => {
         console.error('复制失败:', err);
       });
   };
+  
+  // 保存行程
+  const handleSaveItinerary = async () => {
+    // 检查用户登录状态
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      // 从结果中提取标题
+      const titleMatch = result.match(/^#\s+(.+)$/m);
+      const title = titleMatch ? titleMatch[1] : `${itineraryForm.destination || '未知目的地'}旅行计划`;
+      
+      // 准备行程数据
+      const itineraryData = {
+        title: title,
+        destination: itineraryForm.destination || '未指定',
+        start_date: itineraryForm.startDate || '未指定',
+        end_date: itineraryForm.endDate || '未指定',
+        person_count: itineraryForm.personCount || 1,
+        budget: itineraryForm.budget || '未指定',
+        interests: itineraryForm.interests ? itineraryForm.interests.split(',').map(p => p.trim()) : [],
+        content: result,
+        trip_info: itineraryForm
+      };
+      
+      const saveResult = await saveItinerary(itineraryData);
+      if (saveResult.success) {
+        setShowSaveSuccess(true);
+      } else {
+        alert('保存失败：' + saveResult.error);
+      }
+    } catch (error) {
+      console.error('保存行程失败:', error);
+      alert('保存失败，请重试');
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  // 处理保存成功提示关闭
+  const handleCloseSuccess = () => {
+    setShowSaveSuccess(false);
+  };
 
   // 渲染结果区域
   const renderResult = () => (
@@ -420,7 +475,23 @@ const TravelPlanner = () => {
       {(result || progressResult) && (
         <Paper elevation={3} sx={{ p: 3, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e0e0e0' }}>
           {/* 操作按钮 */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, gap: 2 }}>
+            <Button 
+              variant="contained" 
+              size="small" 
+              onClick={handleSaveItinerary}
+              disabled={saving || activeTab !== 0}
+              sx={{ 
+                bgcolor: '#1976d2', 
+                '&:hover': { bgcolor: '#1565c0' },
+                '&.Mui-disabled': { 
+                  bgcolor: '#e3f2fd',
+                  color: '#90caf9'
+                }
+              }}
+            >
+              {saving ? '保存中...' : '保存行程'}
+            </Button>
             <Button 
               variant="outlined" 
               size="small" 
@@ -501,8 +572,20 @@ const TravelPlanner = () => {
           </Box>
         </CardContent>
       </Card>
+      
+      {/* 保存成功提示 */}
+      <Snackbar
+        open={showSaveSuccess}
+        autoHideDuration={3000}
+        onClose={handleCloseSuccess}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={handleCloseSuccess} sx={{ width: '100%' }}>
+          ✓ 行程保存成功！可在"我的行程"中查看
+        </Alert>
+      </Snackbar>
     </Container>
-  );
-};
+);
+}
 
 export default TravelPlanner;

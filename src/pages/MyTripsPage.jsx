@@ -1,76 +1,92 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import { useItinerary } from '../contexts/ItineraryContext'
 
-function MyTripsPage({ isLoggedIn }) {
+function MyTripsPage() {
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const { user } = useAuth()
+  const { getUserItineraries, deleteItinerary } = useItinerary()
+  const navigate = useNavigate()
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      // 模拟加载用户行程数据
-      setTimeout(() => {
-        const mockTrips = [
-          {
-            id: '1',
-            destination: '日本东京',
-            days: 5,
-            budget: '10000元',
-            createdAt: '2024-06-10',
-            status: '计划中'
-          },
-          {
-            id: '2',
-            destination: '泰国曼谷',
-            days: 4,
-            budget: '8000元',
-            createdAt: '2024-06-05',
-            status: '已完成'
-          },
-          {
-            id: '3',
-            destination: '法国巴黎',
-            days: 7,
-            budget: '25000元',
-            createdAt: '2024-05-20',
-            status: '计划中'
-          }
-        ]
-        setTrips(mockTrips)
-        setLoading(false)
-      }, 1000)
-    } else {
+  const loadTrips = async () => {
+    if (!user) {
       setLoading(false)
+      return
     }
-  }, [isLoggedIn])
 
-  // 处理删除行程
-  const handleDeleteTrip = (tripId) => {
-    if (window.confirm('确定要删除这个行程吗？')) {
-      setTrips(trips.filter(trip => trip.id !== tripId))
+    try {
+      const result = await getUserItineraries()
+      if (result.success) {
+        setTrips(result.data)
+      }
+    } catch (error) {
+      console.error('加载行程失败:', error)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
   }
 
-  if (!isLoggedIn) {
+  useEffect(() => {
+    loadTrips()
+  }, [user])
+
+  const handleDeleteTrip = async (tripId) => {
+    if (window.confirm('确定要删除这个行程吗？')) {
+      try {
+        const result = await deleteItinerary(tripId)
+        if (result.success) {
+          setTrips(trips.filter(trip => trip.id !== tripId))
+        } else {
+          alert('删除失败：' + result.error)
+        }
+      } catch (error) {
+        console.error('删除行程失败:', error)
+        alert('删除失败，请重试')
+      }
+    }
+  }
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    loadTrips()
+  }
+
+  const handleLogin = () => {
+    navigate('/login')
+  }
+
+  if (loading) {
+    return (
+      <div className="my-trips-page">
+        <div className="loading-spinner">加载您的行程中...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
     return (
       <div className="auth-required">
         <div className="card text-center">
           <h2>请先登录</h2>
           <p className="mb-3">登录后可以查看和管理您的行程</p>
-          <Link to="/login">
-            <button>前往登录</button>
-          </Link>
+          <button onClick={handleLogin}>前往登录</button>
         </div>
       </div>
     )
   }
 
-  if (loading) {
-    return <div className="loading-spinner">加载您的行程中...</div>
-  }
-
   return (
     <div className="my-trips-page">
-      <h2>我的行程</h2>
+      <div className="page-header">
+        <h2>我的行程</h2>
+        <button onClick={handleRefresh} disabled={refreshing}>
+          {refreshing ? '刷新中...' : '刷新'}
+        </button>
+      </div>
       
       {trips.length === 0 ? (
         <div className="card text-center">
@@ -81,47 +97,46 @@ function MyTripsPage({ isLoggedIn }) {
         </div>
       ) : (
         <div className="trips-list">
-          {trips.map(trip => (
-            <div key={trip.id} className="card mb-3">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <h3>{trip.destination} {trip.days}日游</h3>
-                  <div className="input-group" style={{ marginTop: '0.5rem' }}>
-                    <div>
-                      <strong>预算:</strong> {trip.budget}
-                    </div>
-                    <div>
-                      <strong>创建日期:</strong> {trip.createdAt}
-                    </div>
-                    <div>
-                      <strong>状态:</strong> 
-                      <span style={{
-                        marginLeft: '0.5rem',
-                        padding: '0.2rem 0.5rem',
-                        borderRadius: '4px',
-                        backgroundColor: trip.status === '计划中' ? 'var(--warning-color)' : 'var(--success-color)',
-                        color: 'white',
-                        fontSize: '0.8rem'
-                      }}>
-                        {trip.status}
-                      </span>
+          {trips.map(trip => {
+            const dateRange = trip.start_date && trip.end_date 
+              ? `${trip.start_date.split('T')[0]} 至 ${trip.end_date.split('T')[0]}`
+              : '日期未指定'
+            
+            return (
+              <div key={trip.id} className="card mb-3">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <h3>{trip.title || `${trip.destination} ${trip.days || 1}日游`}</h3>
+                    <div className="input-group" style={{ marginTop: '0.5rem' }}>
+                      <div>
+                        <strong>目的地:</strong> {trip.destination || '未指定'}
+                      </div>
+                      <div>
+                        <strong>日期:</strong> {dateRange}
+                      </div>
+                      <div>
+                        <strong>预算:</strong> {trip.budget || '未指定'}
+                      </div>
+                      <div>
+                        <strong>人数:</strong> {trip.person_count || 1}人
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <Link to={`/itinerary/${trip.id}`}>
-                    <button>查看</button>
-                  </Link>
-                  <button 
-                    onClick={() => handleDeleteTrip(trip.id)}
-                    style={{ backgroundColor: 'var(--error-color)' }}
-                  >
-                    删除
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <Link to={`/itinerary/${trip.id}`}>
+                      <button>查看</button>
+                    </Link>
+                    <button 
+                      onClick={() => handleDeleteTrip(trip.id)}
+                      style={{ backgroundColor: 'var(--error-color)' }}
+                    >
+                      删除
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
       

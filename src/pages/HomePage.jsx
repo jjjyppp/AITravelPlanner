@@ -165,6 +165,8 @@ function HomePage() {
     }
   }
   
+  // 保存功能已移至TravelPlanner组件中，在行程生成后进行保存
+  
   // 从表单生成行程计划
   const generateItineraryFromForm = async () => {
     // 检查表单必填项
@@ -376,14 +378,16 @@ function HomePage() {
           
           {/* 自然语言输入区域的生成按钮 */}
           <div className="text-center">
-            <button 
-              type="button" 
-              className="primary-button mt-2"
-              onClick={generateItineraryFromNaturalLanguage}
-              disabled={naturalLanguageLoading}
-            >
-              {naturalLanguageLoading ? '生成中...' : '生成行程计划'}
-            </button>
+            <div className="button-group">
+              <button 
+                type="button" 
+                className="primary-button mt-2"
+                onClick={generateItineraryFromNaturalLanguage}
+                disabled={naturalLanguageLoading}
+              >
+                {naturalLanguageLoading ? '生成中...' : '生成行程计划'}
+              </button>
+            </div>
           </div>
         </form>
       </section>
