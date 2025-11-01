@@ -13,12 +13,13 @@ function ItineraryDetailPage() {
   useEffect(() => {
     try {
       // 获取存储的行程内容
-      const content = localStorage.getItem('currentItineraryContent')
-      const info = localStorage.getItem('currentTravelInfo')
+      const content = localStorage.getItem('currentItinerary')
+      const info = localStorage.getItem('tripInfo')
       
       if (content && info) {
         setItineraryContent(content)
-        setTravelInfo(JSON.parse(info))
+        const parsedInfo = JSON.parse(info)
+        setTravelInfo(parsedInfo)
       } else {
         setError('未找到行程信息，请先生成行程')
       }
@@ -52,7 +53,7 @@ function ItineraryDetailPage() {
     return (
       <div className="itinerary-detail-page">
         <div className="card mb-3">
-          <h2>{travelInfo?.destination || '旅行行程'} {travelInfo?.days || 0}日游</h2>
+          <h2>{travelInfo?.destination || '旅行行程'} 行程</h2>
           <div className="input-group">
             {travelInfo && (
               <>
@@ -60,10 +61,16 @@ function ItineraryDetailPage() {
                   <strong>预算:</strong> {travelInfo.budget}
                 </div>
                 <div>
-                  <strong>人数:</strong> {travelInfo.people}人
+                  <strong>人数:</strong> {travelInfo.personCount || 1}人
                 </div>
                 <div>
-                  <strong>偏好:</strong> {travelInfo.preferences || '无'}
+                  <strong>开始日期:</strong> {travelInfo.startDate}
+                </div>
+                <div>
+                  <strong>结束日期:</strong> {travelInfo.endDate}
+                </div>
+                <div>
+                  <strong>兴趣偏好:</strong> {travelInfo.interests?.join('、') || '无'}
                 </div>
                 <div>
                   <strong>创建日期:</strong> {new Date().toLocaleDateString()}

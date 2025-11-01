@@ -1,22 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SpeechRecognition from '../components/SpeechRecognition'
+import LLMService from '../services/llmService'
 
 function HomePage() {
-    // 旅行基本信息
-    const [destination, setDestination] = useState('')
-    const [days, setDays] = useState('')
-    const [startDate, setStartDate] = useState('')
-    const [endDate, setEndDate] = useState('')
-    const [travelers, setTravelers] = useState('')
-    const [budget, setBudget] = useState('')
-    
-    // 日期相关状态已定义在上方
-    
-    const [preferences, setPreferences] = useState('')
+  const [destination, setDestination] = useState('')
+  const [days, setDays] = useState('')
+  const [budget, setBudget] = useState('')
+  const [travelers, setTravelers] = useState('')
+  const [preferences, setPreferences] = useState('')
   const [naturalLanguageInput, setNaturalLanguageInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [formLoading, setFormLoading] = useState(false)
+  const [naturalLanguageLoading, setNaturalLanguageLoading] = useState(false)
   const [currentSpeechText, setCurrentSpeechText] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const navigate = useNavigate()
 
   // 处理语音识别结果
@@ -145,64 +143,93 @@ function HomePage() {
     }
   }
 
-  // 生成旅行计划
-  const generateItinerary = async (e) => {
-    e.preventDefault()
-    
-    // 检查用户是否至少填写了表单或自然语言输入
-    if (!naturalLanguageInput.trim() && !destination) {
-      alert('请填写旅行需求，可以通过表单填写或在自然语言输入框中描述')
+  // 通用的行程生成逻辑
+  const generateItineraryCommon = async (tripInfo) => {
+    try {
+      // 调用大语言模型服务生成行程
+      const itineraryResult = await LLMService.generateItinerary(tripInfo)
+      
+      // 存储生成的行程结果到localStorage，以便在详情页使用
+      localStorage.setItem('currentItinerary', itineraryResult)
+      localStorage.setItem('tripInfo', JSON.stringify(tripInfo))
+      
+      // 创建一个行程ID（这里简单使用时间戳）
+      const itineraryId = Date.now().toString()
+      
+      // 导航到行程详情页
+      navigate(`/itinerary/${itineraryId}`)
+    } catch (error) {
+      console.error('生成行程失败:', error)
+      alert('生成行程失败，请稍后重试')
+      throw error
+    }
+  }
+  
+  // 从表单生成行程计划
+  const generateItineraryFromForm = async () => {
+    // 检查表单必填项
+    if (!destination) {
+      alert('请填写目的地信息')
       return
     }
     
-    // 如果有自然语言输入，解析它
-    if (naturalLanguageInput.trim()) {
-      parseNaturalLanguage(naturalLanguageInput)
-    }
-
-    setLoading(true)
-
+    setFormLoading(true)
+    
     try {
-      // 计算日期范围的天数
-      let daysValue = days || 3;
-      if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const diffTime = Math.abs(end - start);
-        daysValue = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 包括开始日期
+      // 准备传递给大语言模型的数据
+      const tripInfo = {
+        destination: destination || '未指定',
+        startDate: startDate || '未指定',
+        endDate: endDate || '未指定',
+        personCount: travelers || 1,
+        interests: preferences ? preferences.split('、').map(p => p.trim()) : ['未指定'],
+        budget: budget || '未指定'
       }
       
-      // 构建旅行信息对象
-      const travelInfo = {
-        destination: destination,
-        days: daysValue,
-        people: 1, // 暂时设置默认值1
-        budget: budget || '不限',
-        preferences: preferences || '',
-        startDate: startDate,
-        endDate: endDate
+      // // 构建自然语言描述并更新输入框（可选）
+      // let formDescription = `我想去${destination}`
+      // if (travelers) formDescription += `，${travelers}`
+      // if (preferences) formDescription += `，喜欢${preferences}`
+      // if (budget) formDescription += `，预算${budget}`
+      
+      // // 更新自然语言输入框（可选）
+      // setNaturalLanguageInput(formDescription)
+      
+      // 调用通用生成逻辑
+      await generateItineraryCommon(tripInfo)
+    } finally {
+      setFormLoading(false)
+    }
+  }
+  
+  // 从自然语言生成行程计划
+  const generateItineraryFromNaturalLanguage = async () => {
+    // 检查自然语言输入
+    if (!naturalLanguageInput.trim()) {
+      alert('请填写旅行需求')
+      return
+    }
+    
+    setNaturalLanguageLoading(true)
+    
+    try {
+      // 解析自然语言输入以更新表单字段
+      parseNaturalLanguage(naturalLanguageInput)
+      
+      // 准备传递给大语言模型的数据
+      const tripInfo = {
+        destination: destination || '未指定',
+        startDate: startDate || '未指定',
+        endDate: endDate || '未指定',
+        personCount: travelers || 1,
+        interests: preferences ? preferences.split('、').map(p => p.trim()) : ['未指定'],
+        budget: budget || '未指定'
       }
       
-      // 导入LLMService
-      const LLMService = (await import('../services/llmService.js')).default
-      
-      // 生成行程内容
-      const itineraryContent = await LLMService.generateResponse(
-        `请帮我生成具体的旅行规划，我的旅行需求为：\n目的地：${travelInfo.destination}\n天数：${travelInfo.days}天\n人数：${travelInfo.people}人\n预算：${travelInfo.budget}\n偏好：${travelInfo.preferences}`
-      )
-      
-      setLoading(false)
-      
-      // 将行程内容存储在localStorage中，以便详情页访问
-      localStorage.setItem('currentItineraryContent', itineraryContent)
-      localStorage.setItem('currentTravelInfo', JSON.stringify(travelInfo))
-      
-      // 导航到行程详情页
-      navigate(`/itinerary/1`)
-    } catch (error) {
-      setLoading(false)
-      console.error('生成行程失败:', error)
-      alert('生成行程失败，请稍后重试')
+      // 调用通用生成逻辑
+      await generateItineraryCommon(tripInfo)
+    } finally {
+      setNaturalLanguageLoading(false)
     }
   }
 
@@ -218,10 +245,11 @@ function HomePage() {
       <section className="input-section">
         <h2 className="mb-3">开始规划你的旅程</h2>
         
-        <form onSubmit={generateItinerary}>
-          {/* 旅行规划表单 - 移自TravelPlanner组件 */}
-          <div className="travel-planner-form mb-4 p-4 border rounded shadow-sm bg-light">
-            <h3 className="mb-2 text-primary">📝 填写旅行需求（可选）</h3>
+        <form onSubmit={(e) => e.preventDefault()}>
+          {/* 选择框区域 */}
+          <div className="form-container">
+            <h3 className="mb-3">快速选择您的旅行需求</h3>
+            
             <div className="form-row">
               <div className="form-group col-md-6">
                 <label htmlFor="destination" className="form-label">目的地 **</label>
@@ -230,20 +258,19 @@ function HomePage() {
                   id="destination"
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
-                  placeholder=""
+                  placeholder="例如：日本"
                   className="form-control"
                 />
               </div>
               <div className="form-group col-md-6">
                 <label htmlFor="travelers" className="form-label">人数 **</label>
                 <input
-                  type="number"
+                  type="text"
                   id="travelers"
                   value={travelers}
                   onChange={(e) => setTravelers(e.target.value)}
-                  placeholder=""
+                  placeholder="例如：2人"
                   className="form-control"
-                  min="1"
                 />
               </div>
             </div>
@@ -257,7 +284,6 @@ function HomePage() {
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="form-control"
-                  min={new Date().toISOString().split('T')[0]}
                 />
               </div>
               <div className="form-group col-md-6">
@@ -268,20 +294,19 @@ function HomePage() {
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="form-control"
-                  min={startDate}
                 />
               </div>
             </div>
             
             <div className="form-row mt-3">
               <div className="form-group col-md-12">
-                <label htmlFor="preferences" className="form-label">兴趣偏好</label>
+                <label htmlFor="preferences" className="form-label">兴趣偏好 **</label>
                 <input
                   type="text"
                   id="preferences"
                   value={preferences}
                   onChange={(e) => setPreferences(e.target.value)}
-                  placeholder=""
+                  placeholder="例如：美食、动漫"
                   className="form-control"
                 />
               </div>
@@ -295,26 +320,40 @@ function HomePage() {
                   id="budget"
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
-                  placeholder=""
+                  placeholder="例如：1万元"
                   className="form-control"
                 />
               </div>
             </div>
+            
+            {/* 选择框区域的生成按钮 */}
+            <div className="form-row mt-4">
+              <div className="form-group col-md-12 text-center">
+                <button 
+                  type="button" 
+                  className="primary-button"
+                  onClick={generateItineraryFromForm}
+                  disabled={formLoading}
+                >
+                  {formLoading ? '生成中...' : '生成行程计划'}
+                </button>
+              </div>
+            </div>
           </div>
           
-          {/* 自然语言输入框 */}
-          <div className="mb-3">
-            <h3 className="mb-2">💬 或用自然语言描述（可选）</h3>
+          {/* 或使用自然语言描述 */}
+          <div className="mb-3 mt-4">
+            <h3 className="mb-2">💬 或用自然语言描述</h3>
             <textarea
-              id="naturalLanguage"
-              value={naturalLanguageInput}
-              onChange={handleNaturalLanguageInput}
-              placeholder="请用一句话描述您的旅行需求，例如：我想去日本，5天，预算1万元，喜欢美食和动漫，带孩子"
-              rows="4"
-              className="form-control natural-language-input"
-            />
+                id="naturalLanguage"
+                value={naturalLanguageInput}
+                onChange={handleNaturalLanguageInput}
+                placeholder="请用一句话描述您的旅行需求，例如：我想去日本，5天，预算1万元，喜欢美食和动漫，带孩子"
+                rows="4"
+                className="natural-language-input"
+              />
             <div className="input-hint mt-1">
-              💡 提示：可以选择填写表单，或使用自然语言描述，或两者结合
+              💡 提示：请尽量包含目的地、天数、预算、人数和旅行偏好等信息，以便我们生成更符合您期望的旅行计划
             </div>
           </div>
           
@@ -326,22 +365,26 @@ function HomePage() {
               placeholder="点击开始语音输入您的旅行需求..."
             />
             
-            {/* 实时识别结果显示 */}
+            {/* 实时识别结果显示
             {currentSpeechText && (
               <div className="speech-realtime-result">
                 <div className="result-label">🎙️ 实时识别：</div>
                 <div className="result-text">{currentSpeechText}</div>
               </div>
-            )}
+            )} */}
           </div>
           
-          <button 
-            type="submit" 
-            className="primary-button"
-            disabled={loading}
-          >
-            {loading ? '生成中...' : '生成行程计划'}
-          </button>
+          {/* 自然语言输入区域的生成按钮 */}
+          <div className="text-center">
+            <button 
+              type="button" 
+              className="primary-button mt-2"
+              onClick={generateItineraryFromNaturalLanguage}
+              disabled={naturalLanguageLoading}
+            >
+              {naturalLanguageLoading ? '生成中...' : '生成行程计划'}
+            </button>
+          </div>
         </form>
       </section>
 

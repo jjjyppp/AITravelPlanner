@@ -134,7 +134,7 @@ class XunfeiSpeechService {
             domain: "slm",
             language: "zh_cn",
             accent: "mandarin",
-            eos: 60000, // 增加到30秒，让客户端完全控制停止逻辑
+            eos: 60000, // API限制最大值60秒，但客户端已移除自动停止逻辑
             vinfo: 1,
             dwa: "wpgs",
             result: {

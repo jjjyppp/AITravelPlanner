@@ -15,14 +15,15 @@ const SpeechRecognition = ({
   const [audioLevel, setAudioLevel] = useState(0);
   const [isTestingMic, setIsTestingMic] = useState(false);
   const [testMicLevel, setTestMicLevel] = useState(0);
-  const [result, setResult] = useState('');
+  const [result, setResult] = useState(''); // 仅用于界面显示
   
   const audioContextRef = useRef(null);
   const isStoppingRef = useRef(false);
   const audioProcessorRef = useRef(null);
   const audioSourceRef = useRef(null);
   const streamRef = useRef(null);
-  const resultRef = useRef('');
+  const finalResultRef = useRef(''); // 累积的最终结果（不传递给父组件）
+  const interimResultRef = useRef(''); // 临时中间结果
   const audioBufferRef = useRef([]);
   const sendTimerRef = useRef(null);
   const silenceTimerRef = useRef(null);
@@ -47,17 +48,16 @@ const SpeechRecognition = ({
     speechServiceRef.current.setCallbacks({
       onMessage: (data) => {
         try {
+          // 不再因为收到结束帧而自动停止录音，完全由用户手动控制
           if (XunfeiSpeechService.isEndFrame(data)) {
-            stopListening();
-            onResult && onResult(resultRef.current, true);
+            console.log('收到服务端结束帧，但不会自动停止录音');
             return;
           }
           
           const recognitionResult = XunfeiSpeechService.processRecognitionResult(data);
           if (recognitionResult) {
-            resultRef.current = recognitionResult;
-            setResult(recognitionResult);
-            onResult && onResult(recognitionResult, false);
+            // 处理识别结果累积（不传递给父组件）
+            handleRecognitionResult(data, recognitionResult);
           }
         } catch (err) {
           console.error('讯飞识别错误:', err);
@@ -71,16 +71,52 @@ const SpeechRecognition = ({
         const errorMsg = '连接讯飞服务失败: ' + (error.message || '未知错误');
         setErrorMessage(errorMsg);
         onError && onError(new Error(errorMsg));
-        stopListening();
+        // stopListening();
       },
       onClose: () => {
         if (!isStoppingRef.current) {
           console.log('WebSocket连接关闭');
-          stopListening();
+          // stopListening();
         }
       }
     });
   }, [onResult, onError]);
+
+  // 处理识别结果累积
+  const handleRecognitionResult = (data, recognitionResult) => {
+    // 优先使用传入的recognitionResult作为识别文本
+    const text = recognitionResult || data.text || (data.payload && data.payload.result && data.payload.result.text) || '';
+    const status = data.status || (data.payload && data.payload.result && data.payload.result.status) || 0;
+    
+    // 检查是否是最终结果（status === 2）
+    const isFinalResult = status === 2;
+    
+    if (isFinalResult) {
+      // 最终结果：将中间结果累积到最终结果中
+      if (interimResultRef.current) {
+        finalResultRef.current = finalResultRef.current || '';
+        finalResultRef.current += interimResultRef.current;
+        interimResultRef.current = ''; // 清空中间结果
+      }
+      // 添加当前最终结果
+      finalResultRef.current = (finalResultRef.current || '') + text;
+      
+      // 更新UI显示
+      setResult(finalResultRef.current);
+      
+      console.log('累积最终结果:', finalResultRef.current);
+      
+      // 不再实时更新父组件，只在stopListening时传递最终结果
+    } else {
+      // 中间结果：更新临时中间结果
+      interimResultRef.current = text;
+      
+      // 更新显示
+      setResult(text);
+      
+      console.log('中间结果:', interimResultRef.current);
+    }
+  };
 
   // 智能音频活动检测
   const detectAudioActivity = (inputData, maxAmplitude) => {
@@ -111,7 +147,8 @@ const SpeechRecognition = ({
     try {
       setErrorMessage('');
       setResult('');
-      resultRef.current = '';
+      finalResultRef.current = ''; // 重置累积结果
+      interimResultRef.current = ''; // 重置中间结果
       isStoppingRef.current = false;
       audioBufferRef.current = [];
       lastAudioTimeRef.current = Date.now();
@@ -219,7 +256,7 @@ const SpeechRecognition = ({
       const errorMsg = '启动录音失败: ' + (err.message || '未知错误');
       setErrorMessage(errorMsg);
       onError && onError(new Error(errorMsg));
-      stopListening();
+      // stopListening();
     }
   };
 
@@ -241,7 +278,7 @@ const SpeechRecognition = ({
     }, 40);
   };
 
-  // 启动智能静音检测
+  // 定时日志记录（不再自动停止录音）
   const startSmartSilenceDetection = () => {
     silenceTimerRef.current = setInterval(() => {
       if (!isListening) return;
@@ -250,19 +287,8 @@ const SpeechRecognition = ({
       const timeSinceLastAudio = now - lastAudioTimeRef.current;
       const totalSessionTime = now - sessionStartTimeRef.current;
       
-      console.log('智能静音检测 - 会话时长:', Math.round(totalSessionTime/1000), '秒, 静音时长:', Math.round(timeSinceLastAudio/1000), '秒');
-      
-      // 5秒静音检测
-      if (timeSinceLastAudio > 5000) {
-        console.log('检测到5秒静音，停止录音');
-        stopListening();
-      }
-      // 5分钟最大限制（保护机制）
-      else if (totalSessionTime > 300000) {
-        console.log('达到最大录音时长限制，停止录音');
-        stopListening();
-      }
-    }, 1000);
+      console.log('录音状态监控 - 会话时长:', Math.round(totalSessionTime/1000), '秒, 最后音频输入:', Math.round(timeSinceLastAudio/1000), '秒前');
+    }, 5000);
   };
 
   // 停止录音
@@ -281,6 +307,14 @@ const SpeechRecognition = ({
     if (silenceTimerRef.current) {
       clearInterval(silenceTimerRef.current);
       silenceTimerRef.current = null;
+    }
+    
+    // 确保所有中间结果都被合并到最终结果中
+    if (interimResultRef.current) {
+      finalResultRef.current = (finalResultRef.current || '') + interimResultRef.current;
+      interimResultRef.current = '';
+      // 更新UI显示
+      setResult(finalResultRef.current);
     }
     
     // 发送剩余音频数据
@@ -321,10 +355,18 @@ const SpeechRecognition = ({
     // 断开音频连接
     cleanupAudioResources();
     
-    // 重置状态
-    setTimeout(() => {
-      isStoppingRef.current = false;
-    }, 100);
+    // 在录音完全结束后，将最终结果传递给父组件
+      setTimeout(() => {
+        if (finalResultRef.current) {
+          console.log('语音输入结束，传递最终结果给父组件:', finalResultRef.current);
+          // 设置isReplace为false，确保父组件将识别结果追加到输入框内容后面
+          onResult && onResult(finalResultRef.current, false);
+        } else {
+          console.log('没有识别到语音内容');
+        }
+        
+        isStoppingRef.current = false;
+      }, 200);
   };
 
   // 清理音频资源
@@ -434,7 +476,8 @@ const SpeechRecognition = ({
 
   // 清空结果
   const clearResult = () => {
-    resultRef.current = '';
+    finalResultRef.current = '';
+    interimResultRef.current = '';
     setResult('');
     setErrorMessage('');
   };
@@ -448,7 +491,7 @@ const SpeechRecognition = ({
           onClick={toggleListening}
           disabled={disabled || isTestingMic}
         >
-          {isListening ? '⏹️ 停止录音' : '🎤 语音输入(讯飞)'}
+          {isListening ? '⏹️ 停止录音' : '🎤 语音输入'}
         </button>
         
         <button
@@ -521,12 +564,19 @@ const SpeechRecognition = ({
           </button>
         </div>
       )}
-      
-
-      
-      {isListening && (
+        
+        {/* 识别结果框 - 仅用于界面预览，不会传递给父组件 */}
+        {result && (
+          <div className="speech-result">
+            <div className="result-label">识别预览：</div>
+            <div className="result-text">{result}</div>
+            <div className="result-note">（预览内容，停止录音后才会填入输入框）</div>
+          </div>
+        )}
+        
+        {isListening && (
         <div className="voice-recording-indicator">
-          正在录音...请继续说话 (检测到静音5秒后自动停止)
+          正在录音...请继续说话 (请点击停止按钮结束录音)
         </div>
       )}
       
@@ -536,8 +586,7 @@ const SpeechRecognition = ({
           <li>请确保麦克风权限已开启</li>
           <li>建议在安静环境中使用，效果更佳</li>
           <li>支持中文普通话识别</li>
-          <li>检测到静音5秒后自动停止录音</li>
-          <li>最长可连续录音5分钟</li>
+          <li>请点击停止按钮手动结束录音</li>
         </ul>
       </div>
     </div>
