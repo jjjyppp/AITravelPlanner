@@ -22,6 +22,12 @@ export const ItineraryProvider = ({ children }) => {
     }
 
     try {
+      // 兼容调用方传入的 camelCase 或 snake_case 字段
+      const startDate = itineraryData.startDate ?? itineraryData.start_date ?? null;
+      const endDate = itineraryData.endDate ?? itineraryData.end_date ?? null;
+      const personCount = itineraryData.personCount ?? itineraryData.person_count ?? 1;
+      const interests = itineraryData.interests ?? itineraryData.interests_text ?? [];
+
       const { data, error } = await supabase
         .from('itineraries')
         .insert([
@@ -29,13 +35,12 @@ export const ItineraryProvider = ({ children }) => {
             user_id: user.id,
             title: itineraryData.title || `旅行计划 - ${new Date().toLocaleDateString()}`,
             destination: itineraryData.destination,
-            start_date: itineraryData.startDate,
-            end_date: itineraryData.endDate,
-            person_count: itineraryData.personCount,
-            interests: JSON.stringify(itineraryData.interests),
-            budget: itineraryData.budget,
+            start_date: startDate,
+            end_date: endDate,
+            person_count: personCount,
+            interests: Array.isArray(interests) ? JSON.stringify(interests) : String(interests || ''),
+            budget: itineraryData.budget ?? null,
             content: itineraryData.content,
-            created_at: new Date().toISOString(),
           },
         ])
         .select();

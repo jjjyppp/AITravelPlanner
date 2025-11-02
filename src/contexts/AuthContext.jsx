@@ -30,13 +30,18 @@ export const AuthProvider = ({ children }) => {
 
     checkUser();
 
-    // 监听认证状态变化
-    const authListener = auth.onAuthStateChange((event, session) => {
+    // 监听认证状态变化（适配 supabase-js v2 返回结构）
+    const { data } = auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
-    });
+    }) || {};
 
     return () => {
-      authListener?.subscription.unsubscribe();
+      try {
+        data?.subscription?.unsubscribe?.();
+      } catch (e) {
+        // 忽略清理时的异常，避免影响页面加载
+        console.warn('Auth subscription cleanup failed:', e);
+      }
     };
   }, []);
 

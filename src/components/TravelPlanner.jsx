@@ -125,42 +125,12 @@ const TravelPlanner = () => {
       return;
     }
 
-    try {
-      setIsLoading(true);
-      setResult('');
-      setProgressResult('');
-
-      // 构建用户旅行需求文本
-      const travelRequirements = `目的地: ${itineraryForm.destination}, 开始日期: ${itineraryForm.startDate}, 结束日期: ${itineraryForm.endDate}, 人数: ${itineraryForm.personCount}人, 兴趣偏好: ${itineraryForm.interests}${itineraryForm.budget ? `, 预算范围: ${itineraryForm.budget}` : ''}`;
-      
-      // 构建完整的提示词，要求详细的旅行规划内容
-      const prompt = `请帮我生成一份详细的旅行规划，我的旅行需求为：${travelRequirements}
-
-请务必包含以下详细信息：
-1. 详细的每日行程安排，具体到时间段
-2. 景点信息：每个推荐景点的介绍、开放时间、门票价格、游览建议
-3. 住宿推荐：具体酒店名称、位置、价格区间、特色和预订建议
-4. 餐厅推荐：具体餐厅名称、特色菜品、人均消费、位置
-5. 交通详情：
-   - 抵达目的地的大交通建议（飞机/火车等）
-   - 当地交通详细方案，包括具体线路、票价、运营时间
-   - 景点间的最优交通方式
-6. 费用估算：各项花费的明细预算
-7. 实用小贴士：当地习俗、天气注意事项、必备物品等
-
-请使用结构化格式输出，内容要具体详细，便于实际旅行参考。`;
-      
-      // 调用LLMService的流式响应方法
-      const fullResult = await LLMService.generateStreamResponse(prompt, (progress) => {
-        setProgressResult(prev => prev + progress);
-      });
-
-      setResult(fullResult);
-    } catch (error) {
-      alert('生成行程规划失败: ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
+    // 跳转到 AI 生成页面，由该页面调用 LLM 并展示与保存
+    navigate('/ai-itinerary', {
+      state: {
+        itineraryForm
+      }
+    })
   };
 
   // 生成预算估计
@@ -433,17 +403,16 @@ const TravelPlanner = () => {
       const titleMatch = result.match(/^#\s+(.+)$/m);
       const title = titleMatch ? titleMatch[1] : `${itineraryForm.destination || '未知目的地'}旅行计划`;
       
-      // 准备行程数据
+      // 准备行程数据（使用 camelCase 与上下文保持一致）
       const itineraryData = {
         title: title,
         destination: itineraryForm.destination || '未指定',
-        start_date: itineraryForm.startDate || '未指定',
-        end_date: itineraryForm.endDate || '未指定',
-        person_count: itineraryForm.personCount || 1,
-        budget: itineraryForm.budget || '未指定',
-        interests: itineraryForm.interests ? itineraryForm.interests.split(',').map(p => p.trim()) : [],
+        startDate: itineraryForm.startDate || null,
+        endDate: itineraryForm.endDate || null,
+        personCount: itineraryForm.personCount ? Number(itineraryForm.personCount) : 1,
+        budget: itineraryForm.budget || null,
+        interests: itineraryForm.interests ? itineraryForm.interests.split(',').map(p => p.trim()).filter(Boolean) : [],
         content: result,
-        trip_info: itineraryForm
       };
       
       const saveResult = await saveItinerary(itineraryData);

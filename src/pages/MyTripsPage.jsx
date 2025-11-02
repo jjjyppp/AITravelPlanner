@@ -98,8 +98,10 @@ function MyTripsPage() {
       ) : (
         <div className="trips-list">
           {trips.map(trip => {
-            const dateRange = trip.start_date && trip.end_date 
-              ? `${trip.start_date.split('T')[0]} 至 ${trip.end_date.split('T')[0]}`
+            const start = trip.start_date || trip.startDate || ''
+            const end = trip.end_date || trip.endDate || ''
+            const dateRange = (start && end)
+              ? `${String(start)} 至 ${String(end)}`
               : '日期未指定'
             
             return (

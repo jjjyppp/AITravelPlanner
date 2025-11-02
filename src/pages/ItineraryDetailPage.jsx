@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useItinerary } from '../contexts/ItineraryContext'
+import { Container, Card, CardContent, Box, Typography, Paper, Divider, Button } from '@mui/material'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 
 function ItineraryDetailPage() {
   const { id } = useParams()
@@ -10,11 +12,10 @@ function ItineraryDetailPage() {
   const [itinerary, setItinerary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [updating, setUpdating] = useState(false)
-  const [showUpdateSuccess, setShowUpdateSuccess] = useState(false)
+  // 详情页不提供更新编辑功能
   
   const { user } = useAuth()
-  const { getItineraryById, updateItinerary } = useItinerary()
+  const { getItineraryById } = useItinerary()
 
   useEffect(() => {
     // 如果有传递的行程数据，直接使用
@@ -24,7 +25,7 @@ function ItineraryDetailPage() {
       return
     }
 
-    // 否则，从Supabase获取行程数据
+    // 否则，从Supabase获取行程数据；若路由ID不是有效的整型，使用本地缓存回退
     const fetchItinerary = async () => {
       if (!user) {
         setError('请先登录查看行程详情')
@@ -33,11 +34,38 @@ function ItineraryDetailPage() {
       }
       
       try {
-        const result = await getItineraryById(id)
+        // 如果路由参数是时间戳（如 Date.now()）且超出 int4 范围，直接回退本地展示
+        const numId = Number(id)
+        const INT4_MAX = 2147483647
+        if (!Number.isFinite(numId) || numId > INT4_MAX) {
+          const localContent = localStorage.getItem('currentItinerary') || ''
+          const tripInfoRaw = localStorage.getItem('tripInfo')
+          const tripInfo = tripInfoRaw ? JSON.parse(tripInfoRaw) : {}
+
+          if (!localContent) {
+            setError('行程不存在或尚未保存')
+            setLoading(false)
+            return
+          }
+
+          setItinerary({
+            title: tripInfo.title || `${tripInfo.destination || '我的'}旅行计划`,
+            destination: tripInfo.destination || '未指定',
+            start_date: tripInfo.startDate || null,
+            end_date: tripInfo.endDate || null,
+            person_count: tripInfo.personCount || 1,
+            budget: tripInfo.budget || null,
+            interests: Array.isArray(tripInfo.interests) ? tripInfo.interests : [],
+            content: localContent,
+          })
+          setLoading(false)
+          return
+        }
+
+        const result = await getItineraryById(numId)
         if (result.success) {
-          // 如果行程数据中包含itinerary_data字段，则使用该字段的数据
-          const itineraryData = result.data.itinerary_data || result.data
-          setItinerary(itineraryData)
+          // 直接使用表数据；若存在结构化字段可在其上渲染
+          setItinerary(result.data)
         } else {
           setError(result.error || '获取行程详情失败')
         }
@@ -60,39 +88,7 @@ function ItineraryDetailPage() {
     navigate('/')
   }
 
-  const handleUpdateItinerary = async () => {
-    if (!user) {
-      navigate('/login')
-      return
-    }
-    
-    setUpdating(true)
-    try {
-      const updateData = {
-        title: itinerary.title,
-        itinerary_data: itinerary
-      }
-      
-      const result = await updateItinerary(id, updateData)
-      if (result.success) {
-        setShowUpdateSuccess(true)
-        setTimeout(() => setShowUpdateSuccess(false), 3000)
-      } else {
-        alert('更新失败：' + result.error)
-      }
-    } catch (error) {
-      console.error('更新行程失败:', error)
-      alert('更新失败，请重试')
-    } finally {
-      setUpdating(false)
-    }
-  }
-
-  const handleEditActivity = (dayIndex, activityIndex, field, value) => {
-    const updatedItinerary = { ...itinerary }
-    updatedItinerary.days[dayIndex].activities[activityIndex][field] = value
-    setItinerary(updatedItinerary)
-  }
+  // 不支持在线编辑，移除相关逻辑
 
   if (loading) {
     return (
@@ -113,95 +109,90 @@ function ItineraryDetailPage() {
     )
   }
 
+  // 简单的 Markdown 转 HTML（与规划页一致的基本格式）
+  const formatContent = (text) => {
+    if (!text) return ''
+    return text
+      .replace(/^###\s+(.+)$/gm, '<h4>$1</h4>')
+      .replace(/^##\s+(.+)$/gm, '<h3>$1</h3>')
+      .replace(/^#\s+(.+)$/gm, '<h2>$1</h2>')
+      // 无序列表（- 开头）
+      .replace(/^\s*-\s+(.+)$/gm, '<li>$1</li>')
+      .replace(/(<li[^>]*>.*?<\/li>)+/gs, '<ul>$&</ul>')
+      // 有序列表（更宽松：支持 1. / 1、 / 1． / 1) / 1） 且允许前导空格）
+      .replace(/^\s*(?:\d+)[\.\u3002\uFF0E\u3001\)\uff09]\s+(.+)$/gm, '<li>$1</li>')
+      .replace(/(<li[^>]*>.*?<\/li>)+/gs, function(match){
+        if (match.includes('ol>')) return match; return '<ol>' + match + '</ol>'
+      })
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n{2,}/g, '</p><p>')
+      .replace(/^(.*?)$/m, '<p>$1</p>')
+  }
+
   return (
-    <div className="itinerary-detail-page">
-      <header className="itinerary-header">
-        <button onClick={handleBack} className="back-button">← 返回</button>
-        <h1>{itinerary.title}</h1>
-        {user && (
-          <button onClick={handleUpdateItinerary} disabled={updating} className="update-button">
-            {updating ? '更新中...' : '保存更新'}
-          </button>
-        )}
-      </header>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Card elevation={0} sx={{ overflow: 'hidden', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+        <CardContent sx={{ p: 0 }}>
+          <Box sx={{ bgcolor: '#fafafa', p: 3, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={handleBack}>
+              返回
+            </Button>
+            <Typography variant="h4" sx={{ flex: 1 }}>
+              {itinerary.title}
+            </Typography>
+          </Box>
 
-      {showUpdateSuccess && (
-        <div className="update-success-message">
-          ✓ 行程更新成功！
-        </div>
-      )}
+          <Box sx={{ p: 4 }}>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body1" color="text.secondary">
+                目的地：{itinerary.destination || '未指定'}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                日期：{(itinerary.start_date || itinerary.startDate || '未指定')} 至 {(itinerary.end_date || itinerary.endDate || '未指定')}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                人数：{itinerary.person_count || itinerary.personCount || 1} 人
+              </Typography>
+              {itinerary.budget && (
+                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                  预算：{itinerary.budget}
+                </Typography>
+              )}
+              {Array.isArray(itinerary.interests) && itinerary.interests.length > 0 && (
+                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                  兴趣偏好：{itinerary.interests.join('、')}
+                </Typography>
+              )}
+            </Box>
 
-      <div className="itinerary-info">
-        <div className="info-item">
-          <span className="info-label">目的地：</span>
-          <span className="info-value">{itinerary.destination}</span>
-        </div>
-        <div className="info-item">
-          <span className="info-label">日期：</span>
-          <span className="info-value">{itinerary.start_date || itinerary.startDate} 至 {itinerary.end_date || itinerary.endDate}</span>
-        </div>
-        <div className="info-item">
-          <span className="info-label">人数：</span>
-          <span className="info-value">{itinerary.person_count || itinerary.personCount || 1} 人</span>
-        </div>
-        <div className="info-item">
-          <span className="info-label">预算：</span>
-          <span className="info-value">{itinerary.budget}</span>
-        </div>
-        {itinerary.interests && itinerary.interests.length > 0 && (
-          <div className="info-item">
-            <span className="info-label">兴趣偏好：</span>
-            <span className="info-value">{itinerary.interests.join('、')}</span>
-          </div>
-        )}
-      </div>
+            <Divider sx={{ mb: 2 }}>
+              <Typography variant="h6" color="text.secondary">行程内容</Typography>
+            </Divider>
 
-      <div className="itinerary-content">
-        <section className="daily-itinerary">
-          <h2>每日行程</h2>
-          {itinerary.days.map((day, dayIndex) => (
-            <div key={dayIndex} className="day-section">
-              <h3>第 {day.day} 天</h3>
-              <div className="activities">
-                {day.activities.map((activity, actIndex) => (
-                  <div key={actIndex} className="activity-item">
-                    <span className="activity-time">{activity.time}</span>
-                    <div className="activity-details">
-                      <input
-                        type="text"
-                        value={activity.description}
-                        onChange={(e) => handleEditActivity(dayIndex, actIndex, 'description', e.target.value)}
-                        className="activity-description-input"
-                      />
-                      {activity.location && (
-                        <input
-                          type="text"
-                          value={activity.location}
-                          onChange={(e) => handleEditActivity(dayIndex, actIndex, 'location', e.target.value)}
-                          className="activity-location-input"
-                          placeholder="地点"
-                        />
-                      )}
-                    </div>
-                  </div>
+            {Array.isArray(itinerary?.days) && itinerary.days.length > 0 ? (
+              <Paper elevation={3} sx={{ p: 3, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                {itinerary.days.map((day, idx) => (
+                  <Box key={idx} sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#1565c0', mb: 1 }}>第 {day.day} 天</Typography>
+                    {Array.isArray(day.activities) && day.activities.map((a, i) => (
+                      <Box key={i} sx={{ display: 'flex', gap: 2, mb: 1.2 }}>
+                        <Typography variant="body2" sx={{ minWidth: 72, color: 'text.secondary' }}>{a.time}</Typography>
+                        <Typography variant="body1">{a.description}{a.location ? `（${a.location}）` : ''}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
                 ))}
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {itinerary.tips && itinerary.tips.length > 0 && (
-          <section className="travel-tips">
-            <h2>旅行提示</h2>
-            <ul>
-              {itinerary.tips.map((tip, index) => (
-                <li key={index}>{tip}</li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </div>
-    </div>
+              </Paper>
+            ) : (
+              <Paper elevation={3} sx={{ p: 3, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                <div dangerouslySetInnerHTML={{ __html: formatContent(itinerary.content) }} />
+              </Paper>
+            )}
+          </Box>
+        </CardContent>
+      </Card>
+    </Container>
   )
 }
 

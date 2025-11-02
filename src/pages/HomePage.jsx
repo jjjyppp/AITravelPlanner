@@ -145,24 +145,8 @@ function HomePage() {
 
   // 通用的行程生成逻辑
   const generateItineraryCommon = async (tripInfo) => {
-    try {
-      // 调用大语言模型服务生成行程
-      const itineraryResult = await LLMService.generateItinerary(tripInfo)
-      
-      // 存储生成的行程结果到localStorage，以便在详情页使用
-      localStorage.setItem('currentItinerary', itineraryResult)
-      localStorage.setItem('tripInfo', JSON.stringify(tripInfo))
-      
-      // 创建一个行程ID（这里简单使用时间戳）
-      const itineraryId = Date.now().toString()
-      
-      // 导航到行程详情页
-      navigate(`/itinerary/${itineraryId}`)
-    } catch (error) {
-      console.error('生成行程失败:', error)
-      alert('生成行程失败，请稍后重试')
-      throw error
-    }
+    // 改为跳转到 AI 生成页面，由该页面负责调用 LLM 与保存
+    navigate('/ai-itinerary', { state: { itineraryForm: tripInfo } })
   }
   
   // 保存功能已移至TravelPlanner组件中，在行程生成后进行保存

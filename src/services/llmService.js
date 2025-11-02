@@ -5,12 +5,18 @@
 
 import OpenAI from 'openai';
 
-// 创建OpenAI客户端实例
-const openai = new OpenAI({
-  apiKey: '6714b0b7-5d66-4c55-95fe-a5716c2c42c1', // 使用用户提供的API密钥
-  baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
-  dangerouslyAllowBrowser: true, // 允许在浏览器环境中运行
-});
+// 延迟创建OpenAI客户端，避免在模块加载阶段抛错导致白屏
+let _openaiClient = null;
+function getOpenAIClient() {
+  if (!_openaiClient) {
+    _openaiClient = new OpenAI({
+      apiKey: '6714b0b7-5d66-4c55-95fe-a5716c2c42c1', // 使用用户提供的API密钥
+      baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
+      dangerouslyAllowBrowser: true, // 允许在浏览器环境中运行
+    });
+  }
+  return _openaiClient;
+}
 
 /**
  * 大语言模型服务类
@@ -114,7 +120,7 @@ class LLMService {
    */
   static async generateResponse(prompt) {
     try {
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAIClient().chat.completions.create({
         messages: [
           {
             role: 'user',
@@ -146,7 +152,7 @@ class LLMService {
    */
   static async generateStreamResponse(prompt, onProgress) {
     try {
-      const stream = await openai.chat.completions.create({
+      const stream = await getOpenAIClient().chat.completions.create({
         messages: [
           {
             role: 'user',
@@ -213,7 +219,7 @@ class LLMService {
 只返回JSON，不要包含其他说明文字。`;
 
     try {
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAIClient().chat.completions.create({
         messages: [
           {
             role: 'user',

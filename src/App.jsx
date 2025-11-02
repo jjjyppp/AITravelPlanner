@@ -12,6 +12,7 @@ import ItineraryDetailPage from './pages/ItineraryDetailPage'
 import MyTripsPage from './pages/MyTripsPage'
 import BudgetPage from './pages/BudgetPage'
 import TravelPlanner from './components/TravelPlanner'
+import AIItineraryPage from './pages/AIItineraryPage'
 // 语音相关组件已移除
 
 function App() {
@@ -46,11 +47,9 @@ function App() {
             <nav className="app-nav">
               <Link to="/">首页</Link>
               <Link to="/travel-planner">旅行规划</Link>
-              
+              <Link to="/my-trips">我的行程</Link>
               {isLoggedIn ? (
-                // 已登录用户菜单
                 <>
-                  <Link to="/my-trips">我的行程</Link>
                   <Link to="/budget">预算管理</Link>
                   <button onClick={handleLogout} style={{ 
                     background: 'transparent', 
@@ -64,7 +63,6 @@ function App() {
                   </button>
                 </>
               ) : (
-                // 未登录用户菜单
                 <>
                   <Link to="/login">登录</Link>
                   <Link to="/register">注册</Link>
@@ -84,6 +82,7 @@ function App() {
             <Route path="/my-trips" element={<MyTripsPage isLoggedIn={isLoggedIn} />} />
             <Route path="/budget" element={<BudgetPage isLoggedIn={isLoggedIn} />} />
             <Route path="/travel-planner" element={<TravelPlanner />} />
+            <Route path="/ai-itinerary" element={<AIItineraryPage />} />
             {/* 语音相关路由已移除 */}
           </Routes>
         </main>
