@@ -9,8 +9,10 @@ import OpenAI from 'openai';
 let _openaiClient = null;
 function getOpenAIClient() {
   if (!_openaiClient) {
+    const envKey = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_LLM_API_KEY) || ''
+    const apiKey = envKey
     _openaiClient = new OpenAI({
-      apiKey: '6714b0b7-5d66-4c55-95fe-a5716c2c42c1', // 使用用户提供的API密钥
+      apiKey, // 从本地存储或环境变量读取，不要硬编码
       baseURL: 'https://ark.cn-beijing.volces.com/api/v3',
       dangerouslyAllowBrowser: true, // 允许在浏览器环境中运行
     });

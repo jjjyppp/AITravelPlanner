@@ -77,10 +77,12 @@ const MapSection = ({ itinerary, apiKey, securityCode }) => {
   const polylineRef = useRef(null)
   const labelsRef = useRef([])
   const [selectedDay, setSelectedDay] = useState('all')
+  const [mapReady, setMapReady] = useState(false)
 
-  // Use provided keys or the user-provided constants
-  const amapKey = apiKey || 'ede962cf30a75eda4dfc089800d97fd9'
-  const amapSecurity = securityCode || '27ad6da03c74151ca5677765e3e49806'
+  // 从环境变量读取 Key（统一从 env 获取）
+  const env = (typeof import.meta !== 'undefined' && import.meta.env) || {}
+  const amapKey = env.VITE_AMAP_KEY || ''
+  const amapSecurity = env.VITE_AMAP_SECURITY || ''
 
   const dayActivities = useMemo(() => {
     if (!itinerary || !Array.isArray(itinerary.days)) return []
@@ -142,6 +144,7 @@ const MapSection = ({ itinerary, apiKey, securityCode }) => {
           viewMode: '2D',
           resizeEnable: true,
         })
+        setMapReady(true)
         // 为兼容性暂不添加控件，避免个别环境下控件初始化导致的 getZoom 报错
       })
       .catch((e) => console.error(e))
@@ -149,7 +152,7 @@ const MapSection = ({ itinerary, apiKey, securityCode }) => {
 
   useEffect(() => {
     const AMap = window.AMap
-    if (!AMap || !mapRef.current) return
+    if (!AMap || !mapRef.current || !mapReady) return
 
     // Clear previous
     markersRef.current.forEach((m) => m.setMap(null))
@@ -170,13 +173,28 @@ const MapSection = ({ itinerary, apiKey, securityCode }) => {
     // 0) Prefer explicit structured route_points
     if (Array.isArray(itinerary?.route_points) && itinerary.route_points.length) {
       const sorted = itinerary.route_points
-        .map((p, i) => ({
-          lng: Number(p.lng),
-          lat: Number(p.lat),
-          title: p.title || `第${p.order || i + 1}站`,
-          order: Number.isFinite(Number(p.order)) ? Number(p.order) : i + 1,
-          day: Number.isFinite(Number(p.day)) ? Number(p.day) : undefined,
-        }))
+        .map((p, i) => {
+          let lng, lat
+          if (Array.isArray(p) && p.length >= 2) {
+            lng = Number(p[0]); lat = Number(p[1])
+          } else if (typeof p === 'object') {
+            const pos = Array.isArray(p.position) ? p.position : (Array.isArray(p.coord) ? p.coord : null)
+            lng = Number(p.lng ?? p.lon ?? p.longitude ?? (pos ? pos[0] : undefined))
+            lat = Number(p.lat ?? p.latitude ?? (pos ? pos[1] : undefined))
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+              const loc = typeof p.location === 'string' ? p.location : (typeof p.location_text === 'string' ? p.location_text : '')
+              const parts = loc.split(',').map(s => Number(String(s).trim()))
+              if (parts.length === 2 && parts.every(Number.isFinite)) { lng = parts[0]; lat = parts[1] }
+            }
+          }
+          return {
+            lng,
+            lat,
+            title: (p && p.title) ? p.title : `第${p?.order || i + 1}站`,
+            order: Number.isFinite(Number(p?.order)) ? Number(p.order) : i + 1,
+            day: Number.isFinite(Number(p?.day)) ? Number(p.day) : undefined,
+          }
+        })
         .filter((p) => Number.isFinite(p.lng) && Number.isFinite(p.lat))
         .sort((a, b) => (a.order - b.order))
       sorted.forEach((p) => {
@@ -243,7 +261,7 @@ const MapSection = ({ itinerary, apiKey, securityCode }) => {
         lineCap: 'round',
       })
       polylineRef.current.setMap(mapRef.current)
-      mapRef.current.setFitView([...markersRef.current, polylineRef.current], false, [60, 60, 60, 60])
+      try { mapRef.current.setFitView([...markersRef.current, polylineRef.current], false, [60, 60, 60, 60]) } catch {}
     }
 
     const tryGeocodeIfNeeded = async () => {
@@ -275,7 +293,7 @@ const MapSection = ({ itinerary, apiKey, securityCode }) => {
     }
 
     tryGeocodeIfNeeded()
-  }, [itinerary, dayActivities, selectedDay, availableDays])
+  }, [itinerary, dayActivities, selectedDay, availableDays, mapReady])
 
   return (
     <section className="map-section" style={{ marginBottom: 16 }}>

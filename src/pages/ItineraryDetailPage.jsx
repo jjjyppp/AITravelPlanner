@@ -116,8 +116,17 @@ function ItineraryDetailPage() {
     // 展示时移除 route_points 的 JSON 代码块
     const stripRoutePointsBlock = (t) => t.replace(/```json[\s\S]*?```/gi, (m) => (m.includes('route_points') || m.includes('"route_points"')) ? '' : m)
     const cleaned = stripRoutePointsBlock(text)
+    // 若末尾存在包含 route_points 的 JSON 对象，整体移除
+    let cleaned2 = cleaned
+    try {
+      const idx = cleaned.lastIndexOf('"route_points"')
+      if (idx !== -1) {
+        const braceIdx = cleaned.lastIndexOf('{', idx)
+        if (braceIdx !== -1) cleaned2 = cleaned.slice(0, braceIdx)
+      }
+    } catch {}
     // 去除行首的数字编号（如 1. 2. 3. / 1、/ 1．/ 1) / 1））保持时间等中间数字不受影响
-    const withoutLeadingNumbers = cleaned.replace(/^\s*\d+[\.\u3002\uFF0E\u3001\)\uff09]\s+/gm, '')
+    const withoutLeadingNumbers = cleaned2.replace(/^\s*\d+[\.\u3002\uFF0E\u3001\)\uff09]\s+/gm, '')
     return withoutLeadingNumbers
       .replace(/^###\s+(.+)$/gm, '<h4>$1</h4>')
       .replace(/^##\s+(.+)$/gm, '<h3>$1</h3>')

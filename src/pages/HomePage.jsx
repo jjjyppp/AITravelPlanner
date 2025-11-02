@@ -199,17 +199,34 @@ function HomePage() {
     setNaturalLanguageLoading(true)
     
     try {
-      // 解析自然语言输入以更新表单字段
+      // 同步本地解析，避免依赖 setState 的异步更新
+      const clean = naturalLanguageInput.trim()
+      const numMap = { '一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10 }
+      const destPatterns = [
+        /(?:我想去|我要去|打算去|计划去)([^，,。\.\s]+)/,
+        /(?:去|前往|到)([^，,。\.\s]+?)(?:游|旅|玩|行|旅行)?/,
+        /目的地是?([^，,。\.\s]+)/
+      ]
+      let parsedDestination = ''
+      for (const p of destPatterns) { const m = clean.match(p); if (m && m[1]) { parsedDestination = m[1]; break } }
+      const parsedTravelersMatch = clean.match(/(\d+)人/) || clean.match(/([一二三四五六七八九十]+)人/)
+      const parsedTravelers = parsedTravelersMatch ? (numMap[parsedTravelersMatch[1]] || parsedTravelersMatch[1]) : ''
+      const prefsMatch = clean.match(/喜欢([^，,。\.\s]+)/)
+      const parsedPrefs = prefsMatch ? prefsMatch[1] : ''
+      const budgetMatch = clean.match(/预算(?:约|大约)?([^，,。\.\s]*)/) || clean.match(/([^，,。\.\s]*)元(?:预算)?/)
+      const parsedBudget = (budgetMatch && budgetMatch[1]) ? (budgetMatch[1] + (budgetMatch[1].includes('元') ? '' : '元')) : ''
+
+      // 仍然回填状态（非阻塞）
       parseNaturalLanguage(naturalLanguageInput)
-      
-      // 准备传递给大语言模型的数据
+
+      // 准备传递给大语言模型的数据（优先使用同步解析的值）
       const tripInfo = {
-        destination: destination || '未指定',
+        destination: parsedDestination || destination || '未指定',
         startDate: startDate || '未指定',
         endDate: endDate || '未指定',
-        personCount: travelers || 1,
-        interests: preferences ? preferences.split('、').map(p => p.trim()) : ['未指定'],
-        budget: budget || '未指定'
+        personCount: parsedTravelers || travelers || 1,
+        interests: (parsedPrefs || preferences) ? (parsedPrefs || preferences).split('、').map(p => p.trim()) : ['未指定'],
+        budget: parsedBudget || budget || '未指定'
       }
       
       // 调用通用生成逻辑

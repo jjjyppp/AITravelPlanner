@@ -1,5 +1,6 @@
-// Supabase 配置文件
+// Supabase 配置文件（统一从环境变量读取）
+const env = (typeof import.meta !== 'undefined' && import.meta.env) || {}
 export const supabaseConfig = {
-  url: 'https://xpflkedypviejeplcyfg.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwZmxrZWR5cHZpZWplcGxjeWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5OTU5MDksImV4cCI6MjA3NzU3MTkwOX0.KJoNToyM6kEACfribsxf-iBbcaI90dDjS8zC8uMiFEM'
+  url: env.VITE_SUPABASE_URL || '',
+  anonKey: env.VITE_SUPABASE_ANON_KEY || ''
 };

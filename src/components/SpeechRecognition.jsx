@@ -231,11 +231,12 @@ const SpeechRecognition = ({
       audioSourceRef.current.connect(audioProcessorRef.current);
       audioProcessorRef.current.connect(audioContextRef.current.destination);
       
-      // 讯飞API凭证
+      // 讯飞API凭证（统一从环境变量读取）
+      const env = (typeof import.meta !== 'undefined' && import.meta.env) || {}
       const XF_CONFIG = {
-        appId: 'f7ae70c1',
-        apiKey: '557206bc97aa567d51c22e37e2faa9b2',
-        apiSecret: 'NTdmOGIyNjU3MWNkYzQzOGNmNWFjZGNi'
+        appId: env.VITE_XF_APP_ID || '',
+        apiKey: env.VITE_XF_API_KEY || '',
+        apiSecret: env.VITE_XF_API_SECRET || ''
       };
       
       // 连接讯飞服务

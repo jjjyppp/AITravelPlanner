@@ -40,6 +40,9 @@ function ExpensePage() {
     tripId: '',
     notes: ''
   })
+  // 编辑状态
+  const [editingId, setEditingId] = useState(null)
+  const [editingExpense, setEditingExpense] = useState({ category: '餐饮', amount: '', date: '', notes: '' })
   const [activeTrip, setActiveTrip] = useState('')
   const [currentSpeechText, setCurrentSpeechText] = useState('')
 
@@ -192,6 +195,57 @@ function ExpensePage() {
     } catch (err) {
       console.error('删除开销失败:', err)
       alert('删除失败，请重试')
+    }
+  }
+
+  // 进入编辑
+  const startEdit = (expense) => {
+    setEditingId(expense.id)
+    setEditingExpense({
+      category: expense.category,
+      amount: String(expense.amount),
+      date: String(expense.date),
+      notes: expense.notes || ''
+    })
+  }
+
+  // 取消编辑
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditingExpense({ category: '餐饮', amount: '', date: '', notes: '' })
+  }
+
+  // 保存编辑
+  const saveEdit = async () => {
+    if (!editingId) return
+    const amountNum = parseFloat(editingExpense.amount)
+    if (isNaN(amountNum) || amountNum <= 0) {
+      alert('请输入有效金额')
+      return
+    }
+    try {
+      const payload = {
+        category: editingExpense.category,
+        amount: amountNum,
+        date: editingExpense.date,
+        notes: editingExpense.notes || null
+      }
+      const { data, error } = await supabase
+        .from('expenses')
+        .update(payload)
+        .eq('id', editingId)
+        .eq('user_id', user.id)
+        .select()
+      if (error) throw error
+      // 更新本地列表
+      const updated = (data && data[0]) || null
+      if (updated) {
+        setExpenses(prev => prev.map(e => e.id === editingId ? { ...e, ...updated } : e))
+      }
+      cancelEdit()
+    } catch (err) {
+      console.error('更新开销失败:', err)
+      alert('更新失败，请重试')
     }
   }
 
@@ -423,22 +477,77 @@ function ExpensePage() {
             </div>
             {filteredExpenses.map(expense => (
               <div key={expense.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid #eee' }}>
-                <div>{expense.category}</div>
-                <div>{Number(expense.amount).toFixed(2)} 元</div>
-                <div>{String(expense.date)}</div>
-                <div>{expense.notes || '-'}</div>
-                <div>
-                  <button 
-                    onClick={() => deleteExpense(expense.id)}
-                    style={{ 
-                      backgroundColor: 'var(--error-color)',
-                      padding: '0.25rem 0.5rem',
-                      fontSize: '0.8rem'
-                    }}
-                  >
-                    删除
-                  </button>
-                </div>
+                {editingId === expense.id ? (
+                  <>
+                    <div>
+                      <select
+                        value={editingExpense.category}
+                        onChange={(e) => setEditingExpense(prev => ({ ...prev, category: e.target.value }))}
+                      >
+                        {categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editingExpense.amount}
+                        onChange={(e) => setEditingExpense(prev => ({ ...prev, amount: e.target.value }))}
+                      /> 元
+                    </div>
+                    <div>
+                      <input
+                        type="date"
+                        value={editingExpense.date}
+                        onChange={(e) => setEditingExpense(prev => ({ ...prev, date: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        value={editingExpense.notes}
+                        onChange={(e) => setEditingExpense(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="备注"
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={saveEdit} style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>保存</button>
+                      <button onClick={cancelEdit} style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>取消</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>{expense.category}</div>
+                    <div>{Number(expense.amount).toFixed(2)} 元</div>
+                    <div>{String(expense.date)}</div>
+                    <div>{expense.notes || '-'}</div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        onClick={() => startEdit(expense)}
+                        style={{ 
+                          backgroundColor: 'var(--primary-color)',
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        编辑
+                      </button>
+                      <button 
+                        onClick={() => deleteExpense(expense.id)}
+                        style={{ 
+                          backgroundColor: 'var(--error-color)',
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>

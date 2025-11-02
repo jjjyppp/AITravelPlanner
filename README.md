@@ -1,23 +1,31 @@
 # AI 旅行规划师 (AI Travel Planner)
 
-一个基于React的智能旅行规划应用，通过AI技术帮助用户快速规划旅行行程，管理预算，并提供实时旅行辅助。
+说明：软件旨在简化旅行规划过程，通过 AI 了解用户需求，自动生成详细的旅行路线与建议，并提供语音输入、地图可视化与费用管理等辅助能力。
 
-## 核心功能
+## 核心功能（简要）
 
-1. **智能行程规划**：支持文字和语音输入旅行需求（目的地、日期、预算、人数、偏好），AI自动生成个性化旅行路线
-2. **费用预算与管理**：AI进行预算分析，记录旅行开销（支持语音输入）
-3. **用户管理与数据存储**：用户可以注册登录，保存和管理多份旅行计划，实现云端同步
-4. **AI 旅行规划增强**：集成大语言模型（Doubao Seed）提供更智能、详细的行程规划和预算估计
+- 智能行程规划
+  - 语音或文字输入旅行需求（目的地、日期、预算、人数、偏好）。
+  - 由大语言模型生成个性化行程，覆盖交通、住宿、景点、餐饮与建议。
+- 地图概览与路线
+  - 使用地图组件绘制路线；点位旁显示名称。
+  - 支持“按天”切换查看每天的线路；自动缩放以适配视野。
+- 费用预算与管理
+  - 按行程记录支出（类别/金额/日期/备注）；支持语音辅助录入。
+  - 支持新增、删除与行内编辑；按类别生成统计图表。
+- 用户与云端
+  - 账号登录/注册；保存多份行程与开销记录。
+  - 数据云端同步，便于跨设备查看与修改。
 
-## 技术栈
+## 技术栈（Web）
 
-- **前端框架**：React 19
-- **UI组件库**：Material-UI (@mui/material)
-- **路由管理**：React Router
-- **图表可视化**：Chart.js + react-chartjs-2
-- **样式处理**：CSS变量 + 响应式设计
-- **语音识别**：讯飞开放平台 WebSocket API
-- **大语言模型**：OpenAI SDK (Doubao Seed)
+- 前端：React 19 + Vite + React Router
+- UI：Material-UI (@mui/material)；CSS 变量与响应式样式
+- 地图：高德地图 JS API v2.0
+- 大模型：OpenAI SDK（对接 Doubao Seed）
+- 语音识别：科大讯飞 WebSocket API（语音转文本）
+- 数据/认证：Supabase（认证与数据存储）
+- 可视化：Chart.js + react-chartjs-2（费用分类统计）
 
 ## 快速开始
 
@@ -27,6 +35,32 @@
 npm install
 ```
 
+### 配置 API Key（重要）
+
+切记不要将任何 API Key 写入源码或提交到仓库。请使用以下安全方式配置：
+
+- 方式 A：使用 Vite 环境变量（推荐，不会被提交）
+  1) 在项目根目录创建 `.env.local`（已在 `.gitignore` 忽略）。
+  2) 写入：
+  
+  ```env
+  # 高德地图 Web API
+  VITE_AMAP_KEY=your_map_key
+  VITE_AMAP_SECURITY=your_map_security
+
+  # doubao 
+  VITE_LLM_API_KEY=your_llm_api_key
+
+  # 讯飞语音识别
+  VITE_XF_APP_ID=your_xf_app_id
+  VITE_XF_API_KEY=your_xf_api_key
+  VITE_XF_API_SECRET=your_xf_api_secret
+
+  # Supabase
+  VITE_SUPABASE_URL=your_supabase_url
+  VITE_SUPABASE_ANON_KEY=your_supabase_anno_key
+  ```
+  
 ### 开发模式运行
 
 ```bash
@@ -45,66 +79,39 @@ npm run build
 npm run preview
 ```
 
-## 使用说明
-
-1. **规划新行程**：
-   - 在首页输入旅行目的地、天数、预算等信息
-   - 或点击语音按钮，直接说出你的旅行需求（如："我想去日本，5天，预算1万元，喜欢美食和动漫"）
-   - 点击生成按钮，查看AI为你定制的行程
-
-2. **AI 旅行规划增强功能**：
-   - 导航至"旅行规划"页面
-   - 选择"行程规划"或"预算估计"标签
-   - 填写详细信息表单（目的地、日期、人数、兴趣偏好等）
-   - 点击生成按钮，获取AI生成的详细行程或费用预算
-   - 支持流式输出，实时查看生成结果
-
-2. **用户账户**：
-   - 注册或登录账户以保存你的行程
-   - 测试账号：demo / 123456
-
-3. **预算管理**：
-   - 记录每日支出
-   - 通过图表查看支出分析
-   - 支持语音输入记录费用
-
 ## 项目结构
 
 ```
-src/
-  ├── pages/           # 页面组件
-  │   ├── HomePage.jsx
-  │   ├── LoginPage.jsx
-  │   ├── RegisterPage.jsx
-  │   ├── ItineraryDetailPage.jsx
-  │   ├── MyTripsPage.jsx
-  │   └── BudgetPage.jsx
-  ├── components/      # React组件
-  │   ├── SpeechRecognition.jsx  # 语音识别组件
-  │   ├── TravelPlanner.jsx      # AI旅行规划组件
-  │   └── ...
-  ├── services/        # 服务层
-  │   ├── speechService.js       # 语音服务
-  │   ├── llmService.js          # 大语言模型服务
-  │   └── ...
-  ├── App.jsx          # 应用主组件
-  ├── main.jsx         # 应用入口
-  ├── index.css        # 全局样式
-  └── App.css          # 应用特定样式
+.
+├── src/
+│   ├── App.jsx                 # 根组件
+│   ├── main.jsx                # 入口文件
+│   ├── index.css               # 全局样式
+│   ├── App.css                 # 应用样式
+│   ├── assets/                 # 静态资源
+│   ├── components/
+│   │   ├── MapSection.jsx      # 地图：标注名称、折线、按天切换
+│   │   ├── SpeechRecognition.jsx  # 语音输入组件
+│   │   └── SpeechRecognition.css
+│   ├── contexts/
+│   │   ├── AuthContext.jsx       # 认证上下文
+│   │   └── ItineraryContext.jsx  # 行程 CRUD 封装
+│   ├── pages/
+│   │   ├── HomePage.jsx          # 首页：表单/自然语言/语音入口
+│   │   ├── AIItineraryPage.jsx   # AI 生成页：一次性渲染与地图预览
+│   │   ├── ItineraryDetailPage.jsx # 行程详情：地图+内容
+│   │   ├── MyTripsPage.jsx       # 我的行程列表
+│   │   ├── ExpensePage.jsx       # 旅行开销：增删改+统计
+│   │   ├── LoginPage.jsx         # 登录
+│   │   └── RegisterPage.jsx      # 注册
+│   ├── services/
+│   │   ├── llmService.js         # 大模型服务封装（Doubao/OpenAI SDK）
+│   │   └── xunfeiSpeechService.js # 讯飞 WebSocket 语音封装
+│   ├── config/
+│   │   └── supabase.js           # Supabase 环境变量配置
+│   └── supabase.js               # Supabase 客户端与常用方法
+├── public/
+├── package.json
+├── vite.config.js
+└── README.md
 ```
-
-## 浏览器兼容性
-
-- Chrome (推荐)
-- Edge
-- Firefox
-- Safari
-
-**注意**：
-- 语音识别功能在不同浏览器中可能有差异，推荐使用Chrome浏览器以获得最佳体验
-- 大语言模型服务调用可能会有延迟，请耐心等待
-- 建议在稳定的网络环境下使用以获得最佳体验
-
-## 许可证
-
-MIT
