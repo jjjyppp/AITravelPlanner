@@ -22,8 +22,8 @@ function AIItineraryPage() {
 
   useEffect(() => {
     if (!form) {
-      // 没有传入表单信息则返回到规划页
-      navigate('/travel-planner')
+      // 没有传入表单信息则返回首页
+      navigate('/')
       return
     }
 
@@ -59,7 +59,7 @@ function AIItineraryPage() {
         setResult(fullResult)
       } catch (e) {
         alert('生成行程规划失败: ' + e.message)
-        navigate('/travel-planner')
+        navigate('/')
       } finally {
         setIsLoading(false)
       }

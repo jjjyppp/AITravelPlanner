@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bar } from 'react-chartjs-2'
 import SpeechRecognition from '../components/SpeechRecognition'
+import { useItinerary } from '../contexts/ItineraryContext'
+import { supabase } from '../supabase'
+import { useAuth } from '../contexts/AuthContext'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,30 +25,70 @@ ChartJS.register(
   Legend
 )
 
-function BudgetPage({ isLoggedIn }) {
-  const [expenses, setExpenses] = useState([
-    { id: 1, category: '餐饮', amount: 350, date: '2024-06-10', tripId: '1' },
-    { id: 2, category: '交通', amount: 200, date: '2024-06-10', tripId: '1' },
-    { id: 3, category: '购物', amount: 800, date: '2024-06-11', tripId: '1' },
-    { id: 4, category: '住宿', amount: 600, date: '2024-06-10', tripId: '1' },
-    { id: 5, category: '门票', amount: 450, date: '2024-06-11', tripId: '1' }
-  ])
+function ExpensePage() {
+  const { user } = useAuth()
+  const { getUserItineraries } = useItinerary()
+
+  const [itineraries, setItineraries] = useState([])
+  const [loadingTrips, setLoadingTrips] = useState(true)
+  const [expenses, setExpenses] = useState([])
+  const [loadingExpenses, setLoadingExpenses] = useState(false)
   const [newExpense, setNewExpense] = useState({
     category: '餐饮',
     amount: '',
     date: new Date().toISOString().split('T')[0],
-    tripId: '1',
+    tripId: '',
     notes: ''
   })
-  const [activeTrip, setActiveTrip] = useState('1')
+  const [activeTrip, setActiveTrip] = useState('')
   const [currentSpeechText, setCurrentSpeechText] = useState('')
 
-  // 模拟的行程选项
-  const tripOptions = [
-    { value: '1', label: '日本东京 - 5日游' },
-    { value: '2', label: '泰国曼谷 - 4日游' },
-    { value: '3', label: '法国巴黎 - 7日游' }
-  ]
+  // 加载用户行程
+  useEffect(() => {
+    const loadTrips = async () => {
+      if (!user) { setLoadingTrips(false); return }
+      try {
+        const result = await getUserItineraries()
+        if (result.success) {
+          setItineraries(result.data)
+          if (result.data.length > 0) {
+            const firstId = String(result.data[0].id)
+            setActiveTrip(firstId)
+            setNewExpense(prev => ({ ...prev, tripId: firstId }))
+          }
+        }
+      } finally {
+        setLoadingTrips(false)
+      }
+    }
+    loadTrips()
+  }, [user, getUserItineraries])
+
+  // 根据选中行程加载开销
+  const loadExpenses = async (tripId) => {
+    if (!user || !tripId) return
+    setLoadingExpenses(true)
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('itinerary_id', Number(tripId))
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      setExpenses(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error('加载开销失败:', e)
+      setExpenses([])
+    } finally {
+      setLoadingExpenses(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTrip) loadExpenses(activeTrip)
+  }, [activeTrip])
 
   // 支出类别选项
   const categories = ['餐饮', '交通', '住宿', '门票', '购物', '其他']
@@ -93,42 +136,67 @@ function BudgetPage({ isLoggedIn }) {
   }
 
   // 添加新支出
-  const addExpense = (e) => {
+  const addExpense = async (e) => {
     e.preventDefault()
-    
-    if (!newExpense.amount || parseFloat(newExpense.amount) <= 0) {
+    if (!activeTrip) {
+      alert('请先选择一个行程')
+      return
+    }
+    const amountNum = parseFloat(newExpense.amount)
+    if (!newExpense.amount || isNaN(amountNum) || amountNum <= 0) {
       alert('请输入有效金额')
       return
     }
 
-    const expense = {
-      id: Date.now(),
-      category: newExpense.category,
-      amount: parseFloat(newExpense.amount),
-      date: newExpense.date,
-      tripId: newExpense.tripId,
-      notes: newExpense.notes
+    try {
+      const payload = {
+        user_id: user.id,
+        itinerary_id: Number(activeTrip),
+        category: newExpense.category,
+        amount: amountNum,
+        date: newExpense.date,
+        notes: newExpense.notes || null,
+      }
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([payload])
+        .select()
+      if (error) throw error
+      // 刷新列表
+      setExpenses([...(data || []), ...expenses])
+      // 重置表单
+      setNewExpense({
+        category: '餐饮',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        tripId: activeTrip,
+        notes: ''
+      })
+    } catch (err) {
+      console.error('添加开销失败:', err)
+      alert('添加开销失败，请检查网络或权限设置')
     }
-
-    setExpenses([...expenses, expense])
-    
-    // 重置表单
-    setNewExpense({
-      category: '餐饮',
-      amount: '',
-      date: new Date().toISOString().split('T')[0],
-      tripId: activeTrip,
-      notes: ''
-    })
   }
 
   // 删除支出
-  const deleteExpense = (id) => {
-    setExpenses(expenses.filter(expense => expense.id !== id))
+  const deleteExpense = async (id) => {
+    if (!window.confirm('确定要删除该开销记录吗？')) return
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id)
+      if (error) throw error
+      setExpenses(expenses.filter(expense => expense.id !== id))
+    } catch (err) {
+      console.error('删除开销失败:', err)
+      alert('删除失败，请重试')
+    }
   }
 
   // 过滤当前行程的支出
-  const filteredExpenses = expenses.filter(expense => expense.tripId === activeTrip)
+  const filteredExpenses = useMemo(() => expenses, [expenses])
 
   // 计算总支出
   const totalExpense = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0)
@@ -189,7 +257,7 @@ function BudgetPage({ isLoggedIn }) {
     return <Bar data={data} options={options} />
   }
 
-  if (!isLoggedIn) {
+  if (!user) {
     return (
       <div className="auth-required">
         <div className="card text-center">
@@ -203,9 +271,31 @@ function BudgetPage({ isLoggedIn }) {
     )
   }
 
+  if (loadingTrips) {
+    return (
+      <div className="my-trips-page">
+        <div className="loading-spinner">加载行程列表中...</div>
+      </div>
+    )
+  }
+
+  if (itineraries.length === 0) {
+    return (
+      <div className="auth-required">
+        <div className="card text-center">
+          <h2>尚未创建行程</h2>
+          <p className="mb-3">请先创建并保存一个行程后再记录开销</p>
+          <Link to="/">
+            <button>去创建行程</button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="budget-page">
-      <h2>预算管理</h2>
+      <h2>旅行开销</h2>
       
       {/* 行程选择器 */}
       <div className="card mb-3">
@@ -213,13 +303,20 @@ function BudgetPage({ isLoggedIn }) {
         <select
           id="tripSelect"
           value={activeTrip}
-          onChange={(e) => setActiveTrip(e.target.value)}
+          onChange={(e) => {
+            setActiveTrip(e.target.value)
+            setNewExpense(prev => ({ ...prev, tripId: e.target.value }))
+          }}
         >
-          {tripOptions.map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
+          {itineraries.map(trip => {
+            const start = trip.start_date || trip.startDate || ''
+            const end = trip.end_date || trip.endDate || ''
+            const label = trip.title || `${trip.destination || ''}`
+            const dates = start && end ? `（${start} 至 ${end}）` : ''
+            return (
+              <option key={trip.id} value={trip.id}>{label} {dates}</option>
+            )
+          })}
         </select>
       </div>
 
@@ -283,13 +380,13 @@ function BudgetPage({ isLoggedIn }) {
                 placeholder="语音记录支出信息，如：餐饮 50元"
               />
               
-              {/* 实时识别结果显示 */}
+              {/* 实时识别结果显示
               {currentSpeechText && (
                 <div className="speech-realtime-result">
                   <div className="result-label">🎙️ 实时识别：</div>
                   <div className="result-text">{currentSpeechText}</div>
                 </div>
-              )}
+              )} */}
             </div>
           </div>
         </form>
@@ -298,10 +395,16 @@ function BudgetPage({ isLoggedIn }) {
       {/* 支出统计和图表 */}
       <div className="card mb-3">
         <h3>支出统计</h3>
-        <p>总支出: <strong style={{ color: 'var(--primary-color)' }}>{totalExpense.toFixed(2)} 元</strong></p>
-        <div className="budget-chart">
-          {expensesByCategory.length > 0 ? renderExpenseChart() : <p>暂无支出数据</p>}
-        </div>
+        {loadingExpenses ? (
+          <p>开销加载中...</p>
+        ) : (
+          <>
+            <p>总支出: <strong style={{ color: 'var(--primary-color)' }}>{totalExpense.toFixed(2)} 元</strong></p>
+            <div className="budget-chart">
+              {expensesByCategory.length > 0 ? renderExpenseChart() : <p>暂无支出数据</p>}
+            </div>
+          </>
+        )}
       </div>
 
       {/* 支出明细 */}
@@ -321,8 +424,8 @@ function BudgetPage({ isLoggedIn }) {
             {filteredExpenses.map(expense => (
               <div key={expense.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid #eee' }}>
                 <div>{expense.category}</div>
-                <div>{expense.amount.toFixed(2)} 元</div>
-                <div>{expense.date}</div>
+                <div>{Number(expense.amount).toFixed(2)} 元</div>
+                <div>{String(expense.date)}</div>
                 <div>{expense.notes || '-'}</div>
                 <div>
                   <button 
@@ -345,4 +448,4 @@ function BudgetPage({ isLoggedIn }) {
   )
 }
 
-export default BudgetPage
+export default ExpensePage

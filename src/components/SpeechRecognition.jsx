@@ -570,7 +570,7 @@ const SpeechRecognition = ({
           <div className="speech-result">
             <div className="result-label">识别预览：</div>
             <div className="result-text">{result}</div>
-            <div className="result-note">（预览内容，停止录音后才会填入输入框）</div>
+            {/* <div className="result-note">（预览内容，停止录音后才会填入输入框）</div> */}
           </div>
         )}
         

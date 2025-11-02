@@ -55,6 +55,25 @@ export const AuthProvider = ({ children }) => {
       }
       
       setUser(data.user);
+      // 登录成功后，合并注册阶段暂存的资料并写入 users（此时已有会话，RLS 可通过）
+      try {
+        let extra = null;
+        try { extra = JSON.parse(localStorage.getItem('pendingProfile') || 'null'); } catch {}
+        // 仅写入最小必要字段，避免与后端列不一致导致 400
+        const profileRow = {
+          id: data.user.id,
+          email: data.user.email,
+          ...(extra?.phone ? { phone: extra.phone } : {}),
+          ...(extra?.username ? { username: extra.username } : {}),
+        };
+        const { error: profileError } = await supabase.from('users').upsert(profileRow);
+        if (profileError) {
+          console.warn('登录后写入 users 表失败（可能为列不存在或 RLS 限制）:', profileError.message || profileError);
+        }
+        if (extra) localStorage.removeItem('pendingProfile');
+      } catch (e) {
+        console.warn('登录后写入 users 表失败（可能为 RLS/权限问题）:', e)
+      }
       return { success: true, user: data.user };
     } catch (error) {
       console.error('Login error:', error);
@@ -64,59 +83,12 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (phone, username, email, password) => {
     try {
-      // 检查手机号是否已注册
-      const { data: existingUser, error: existingUserError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('phone', phone)
-        .single();
-      
-      if (!existingUserError) {
-        return { success: false, error: '该手机号已被注册' };
-      }
-      
-      // 使用新的auth服务进行注册，添加用户信息作为额外数据
-      const userData = {
-        username,
-        phone
-      };
-      
+      // 采用方案A：前端不直接写 users，交由数据库触发器自动建档
+      const userData = { username, phone };
       const { data, error } = await auth.signUp(email, password, userData);
-      
-      if (error) {
-        throw error;
-      }
-      
-      // 如果注册成功，创建用户个人资料
-        if (data.user) {
-          console.log(data.user.id);
-          
-          // 直接在users表中创建用户记录
-          const userData = {
-            // 不指定id字段，让数据库自动生成bigint类型的id
-            // 添加user_id字段存储Supabase认证系统生成的用户UUID
-            // 这样行级安全策略可以使用auth.uid() = user_id来验证权限
-            user_id: data.user.id, // Supabase认证的用户UUID，用于RLS策略验证
-            phone: phone,
-            username: username,
-            email: email,
-            created_at: new Date().toISOString(),
-            // 可选：设置初始状态
-            status: 'active'
-          };
-          
-          const { data: insertData, error: insertError } = await supabase
-            .from('users')
-            .insert(userData);
-            
-          if (insertError) {
-            console.error('Error creating user in users table:', insertError);
-            // 即使插入失败也继续，因为认证已经成功
-          } else {
-            console.log('User profile created successfully in users table:', insertData);
-          }
-      }
-      
+      if (error) { throw error; }
+      // 暂存扩展资料，等待首次登录后再更新到 public.users
+      try { localStorage.setItem('pendingProfile', JSON.stringify({ phone, username })); } catch {}
       return { success: true, user: data.user };
     } catch (error) {
       console.error('Register error:', error);
