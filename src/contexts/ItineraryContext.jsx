@@ -41,6 +41,7 @@ export const ItineraryProvider = ({ children }) => {
             interests: Array.isArray(interests) ? JSON.stringify(interests) : String(interests || ''),
             budget: itineraryData.budget ?? null,
             content: itineraryData.content,
+            route_points: Array.isArray(itineraryData.route_points) ? itineraryData.route_points : [],
           },
         ])
         .select();
@@ -74,10 +75,17 @@ export const ItineraryProvider = ({ children }) => {
       }
 
       // 解析JSON字段
-      const parsedData = data.map(item => ({
-        ...item,
-        interests: item.interests ? JSON.parse(item.interests) : [],
-      }));
+      const parsedData = data.map(item => {
+        let routePoints = []
+        const rp = item.route_points
+        if (Array.isArray(rp)) routePoints = rp
+        else if (typeof rp === 'string') { try { routePoints = JSON.parse(rp) } catch { routePoints = [] } }
+        return {
+          ...item,
+          interests: item.interests ? JSON.parse(item.interests) : [],
+          route_points: routePoints,
+        }
+      });
 
       return { success: true, data: parsedData };
     } catch (error) {
@@ -100,9 +108,14 @@ export const ItineraryProvider = ({ children }) => {
       }
 
       // 解析JSON字段
+      let routePoints = []
+      const rp = data.route_points
+      if (Array.isArray(rp)) routePoints = rp
+      else if (typeof rp === 'string') { try { routePoints = JSON.parse(rp) } catch { routePoints = [] } }
       const parsedData = {
         ...data,
         interests: data.interests ? JSON.parse(data.interests) : [],
+        route_points: routePoints,
       };
 
       return { success: true, data: parsedData };
@@ -124,6 +137,7 @@ export const ItineraryProvider = ({ children }) => {
       if (updates.title !== undefined) updateData.title = updates.title;
       if (updates.content !== undefined) updateData.content = updates.content;
       if (updates.interests !== undefined) updateData.interests = JSON.stringify(updates.interests);
+      if (updates.route_points !== undefined) updateData.route_points = Array.isArray(updates.route_points) ? updates.route_points : [];
 
       const { data, error } = await supabase
         .from('itineraries')

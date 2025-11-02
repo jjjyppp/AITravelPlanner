@@ -232,104 +232,9 @@ function HomePage() {
         <h2 className="mb-3">开始规划你的旅程</h2>
         
         <form onSubmit={(e) => e.preventDefault()}>
-          {/* 选择框区域 */}
-          <div className="form-container">
-            <h3 className="mb-3">快速选择您的旅行需求</h3>
-            
-            <div className="form-row">
-              <div className="form-group col-md-6">
-                <label htmlFor="destination" className="form-label">目的地 **</label>
-                <input
-                  type="text"
-                  id="destination"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  placeholder="例如：日本"
-                  className="form-control"
-                />
-              </div>
-              <div className="form-group col-md-6">
-                <label htmlFor="travelers" className="form-label">人数 **</label>
-                <input
-                  type="text"
-                  id="travelers"
-                  value={travelers}
-                  onChange={(e) => setTravelers(e.target.value)}
-                  placeholder="例如：2人"
-                  className="form-control"
-                />
-              </div>
-            </div>
-            
-            <div className="form-row mt-3">
-              <div className="form-group col-md-6">
-                <label htmlFor="startDate" className="form-label">开始日期 **</label>
-                <input
-                  type="date"
-                  id="startDate"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="form-control"
-                />
-              </div>
-              <div className="form-group col-md-6">
-                <label htmlFor="endDate" className="form-label">结束日期 **</label>
-                <input
-                  type="date"
-                  id="endDate"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="form-control"
-                />
-              </div>
-            </div>
-            
-            <div className="form-row mt-3">
-              <div className="form-group col-md-12">
-                <label htmlFor="preferences" className="form-label">兴趣偏好 **</label>
-                <input
-                  type="text"
-                  id="preferences"
-                  value={preferences}
-                  onChange={(e) => setPreferences(e.target.value)}
-                  placeholder="例如：美食、动漫"
-                  className="form-control"
-                />
-              </div>
-            </div>
-            
-            <div className="form-row mt-3">
-              <div className="form-group col-md-12">
-                <label htmlFor="budget" className="form-label">预算范围</label>
-                <input
-                  type="text"
-                  id="budget"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  placeholder="例如：1万元"
-                  className="form-control"
-                />
-              </div>
-            </div>
-            
-            {/* 选择框区域的生成按钮 */}
-            <div className="form-row mt-4">
-              <div className="form-group col-md-12 text-center">
-                <button 
-                  type="button" 
-                  className="primary-button"
-                  onClick={generateItineraryFromForm}
-                  disabled={formLoading}
-                >
-                  {formLoading ? '生成中...' : '生成行程计划'}
-                </button>
-              </div>
-            </div>
-          </div>
-          
           {/* 或使用自然语言描述 */}
           <div className="mb-3 mt-4">
-            <h3 className="mb-2">💬 或用自然语言描述</h3>
+            <h3 className="mb-2">可以在这儿描述你的需求</h3>
             <textarea
                 id="naturalLanguage"
                 value={naturalLanguageInput}
@@ -371,6 +276,101 @@ function HomePage() {
               >
                 {naturalLanguageLoading ? '生成中...' : '生成行程计划'}
               </button>
+            </div>
+          </div>
+
+          {/* 选择框区域 */}
+          <div className="form-container">
+            <h3 className="mb-3">也可以快速选择你的旅行需求</h3>
+            
+            <div className="form-row">
+              <div className="form-group col-md-6">
+                <label htmlFor="destination" className="form-label">目的地</label>
+                <input
+                  type="text"
+                  id="destination"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  placeholder="例如：日本"
+                  className="form-control"
+                />
+              </div>
+              <div className="form-group col-md-6">
+                <label htmlFor="travelers" className="form-label">人数</label>
+                <input
+                  type="text"
+                  id="travelers"
+                  value={travelers}
+                  onChange={(e) => setTravelers(e.target.value)}
+                  placeholder="例如：2人"
+                  className="form-control"
+                />
+              </div>
+            </div>
+            
+            <div className="form-row mt-3">
+              <div className="form-group col-md-6">
+                <label htmlFor="startDate" className="form-label">开始日期</label>
+                <input
+                  type="date"
+                  id="startDate"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+              <div className="form-group col-md-6">
+                <label htmlFor="endDate" className="form-label">结束日期</label>
+                <input
+                  type="date"
+                  id="endDate"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+            </div>
+            
+            <div className="form-row mt-3">
+              <div className="form-group col-md-12">
+                <label htmlFor="preferences" className="form-label">兴趣偏好</label>
+                <input
+                  type="text"
+                  id="preferences"
+                  value={preferences}
+                  onChange={(e) => setPreferences(e.target.value)}
+                  placeholder="例如：美食、动漫"
+                  className="form-control"
+                />
+              </div>
+            </div>
+            
+            <div className="form-row mt-3">
+              <div className="form-group col-md-12">
+                <label htmlFor="budget" className="form-label">预算范围</label>
+                <input
+                  type="text"
+                  id="budget"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  placeholder="例如：1万元"
+                  className="form-control"
+                />
+              </div>
+            </div>
+            
+            {/* 选择框区域的生成按钮 */}
+            <div className="form-row mt-4">
+              <div className="form-group col-md-12 text-center">
+                <button 
+                  type="button" 
+                  className="primary-button"
+                  onClick={generateItineraryFromForm}
+                  disabled={formLoading}
+                >
+                  {formLoading ? '生成中...' : '生成行程计划'}
+                </button>
+              </div>
             </div>
           </div>
         </form>

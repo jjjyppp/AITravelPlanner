@@ -4,6 +4,7 @@ import { Box, Button, Card, CardContent, Container, Divider, Paper, Snackbar, Al
 import LLMService from '../services/llmService'
 import { useAuth } from '../contexts/AuthContext'
 import { useItinerary } from '../contexts/ItineraryContext'
+import MapSection from '../components/MapSection'
 
 function AIItineraryPage() {
   const location = useLocation()
@@ -50,7 +51,19 @@ function AIItineraryPage() {
 6. 费用估算：各项花费的明细预算
 7. 实用小贴士：当地习俗、天气注意事项、必备物品等
 
-请使用结构化格式输出，内容要具体详细，便于实际旅行参考。`
+输出要求：
+- 使用结构化且清晰的排版，便于阅读。
+- 在全文末尾追加一个仅包含路线点位的 JSON 代码块（使用\`\`\`json 包裹），结构严格如下：
+\`\`\`json
+{
+  "route_points": [
+    {"title": "名称", "lng": 116.3974, "lat": 39.9093, "day": 1, "time": "09:00", "address": "可选地址", "order": 1, "source": "ai", "location_text": "原始地点文本"}
+  ]
+}
+\`\`\`
+- 注意：经纬度为经度在前(lng), 纬度在后(lat)；数值范围 lng ∈ [-180,180], lat ∈ [-90,90]；若坐标不确定，可以省略该点，不要编造。
+- 不要在 JSON 代码块外增加任何注释或解释性文字。
+`
 
         const fullResult = await LLMService.generateStreamResponse(prompt, (chunk) => {
           setProgressResult(prev => prev + chunk)
@@ -92,6 +105,44 @@ function AIItineraryPage() {
         return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null
       }
 
+      // 从结果中解析 route_points（如果模型按要求输出）
+      const extractRoutePoints = (t) => {
+        if (!t) return []
+        const validPoint = (p) => p && Number.isFinite(Number(p.lng)) && Number.isFinite(Number(p.lat))
+        const normalize = (arr) => Array.isArray(arr) ? arr.filter(validPoint) : []
+
+        // 1) 优先：```json 代码块
+        try {
+          const codeBlock = t.match(/```json\s*([\s\S]*?)\s*```/i)
+          if (codeBlock) {
+            const parsed = JSON.parse(codeBlock[1])
+            if (Array.isArray(parsed)) return normalize(parsed)
+            if (parsed && Array.isArray(parsed.route_points)) return normalize(parsed.route_points)
+          }
+        } catch (_) {}
+
+        // 2) 其次：直接查找 "route_points": [ ... ]
+        try {
+          const rpArrayMatch = t.match(/"route_points"\s*:\s*(\[[\s\S]*?\])/)
+          if (rpArrayMatch) {
+            const arr = JSON.parse(rpArrayMatch[1])
+            return normalize(arr)
+          }
+        } catch (_) {}
+
+        // 3) 兜底：查找第一个 JSON 对象，若包含 route_points 则用之
+        try {
+          const jsonObjMatch = t.match(/\{[\s\S]*\}/)
+          if (jsonObjMatch) {
+            const obj = JSON.parse(jsonObjMatch[0])
+            if (obj && Array.isArray(obj.route_points)) return normalize(obj.route_points)
+          }
+        } catch (_) {}
+        return []
+      }
+
+      const routePoints = extractRoutePoints(text)
+
       const payload = {
         title,
         destination: form.destination || '未指定',
@@ -105,6 +156,7 @@ function AIItineraryPage() {
             ? form.interests.split(/,|、/).map(s => s.trim()).filter(Boolean)
             : (typeof form.interests === 'string' ? [form.interests] : []),
         content: text,
+        route_points: routePoints,
       }
 
       const saveRes = await saveItinerary(payload)
@@ -127,7 +179,11 @@ function AIItineraryPage() {
 
   const formatResult = (text) => {
     if (!text) return ''
-    return text
+    const stripRoutePointsBlock = (t) => t.replace(/```json[\s\S]*?```/gi, (m) => (m.includes('route_points') || m.includes('"route_points"')) ? '' : m)
+    const cleaned = stripRoutePointsBlock(text)
+    // 去除行首的数字编号（如 1. 2. 3. / 1、/ 1．/ 1) / 1））保持时间等中间数字不受影响
+    const withoutLeadingNumbers = cleaned.replace(/^\s*\d+[\.\u3002\uFF0E\u3001\)\uff09]\s+/gm, '')
+    return withoutLeadingNumbers
       .replace(/^###\s+(.+)$/gm, '<h4 style="margin-top: 1.5em; margin-bottom: 0.5em; color: #1976d2;">$1</h4>')
       .replace(/^##\s+(.+)$/gm, '<h3 style="margin-top: 2em; margin-bottom: 0.75em; color: #1976d2;">$1</h3>')
       .replace(/^#\s+(.+)$/gm, '<h2 style="margin-top: 2em; margin-bottom: 1em; color: #1565c0; border-bottom: 2px solid #e3f2fd; padding-bottom: 0.3em;">$1</h2>')
@@ -139,6 +195,44 @@ function AIItineraryPage() {
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/\n{2,}/g, '</p><p>')
       .replace(/^(.*?)$/m, '<p>$1</p>')
+  }
+
+  // 供地图预览使用：根据当前生成结果构建临时 itinerary
+  const extractRoutePointsForPreview = (t) => {
+    if (!t) return []
+    const validPoint = (p) => p && Number.isFinite(Number(p.lng)) && Number.isFinite(Number(p.lat))
+    const normalize = (arr) => Array.isArray(arr) ? arr.filter(validPoint) : []
+    try {
+      const codeBlock = t.match(/```json\s*([\s\S]*?)\s*```/i)
+      if (codeBlock) {
+        const parsed = JSON.parse(codeBlock[1])
+        if (Array.isArray(parsed)) return normalize(parsed)
+        if (parsed && Array.isArray(parsed.route_points)) return normalize(parsed.route_points)
+      }
+    } catch (_) {}
+    try {
+      const rpArrayMatch = t.match(/"route_points"\s*:\s*(\[[\s\S]*?\])/)
+      if (rpArrayMatch) {
+        const arr = JSON.parse(rpArrayMatch[1])
+        return normalize(arr)
+      }
+    } catch (_) {}
+    try {
+      const jsonObjMatch = t.match(/\{[\s\S]*\}/)
+      if (jsonObjMatch) {
+        const obj = JSON.parse(jsonObjMatch[0])
+        if (obj && Array.isArray(obj.route_points)) return normalize(obj.route_points)
+      }
+    } catch (_) {}
+    return []
+  }
+
+  const textForMap = result || progressResult
+  const previewRoutePoints = extractRoutePointsForPreview(textForMap)
+  const previewItinerary = {
+    destination: form?.destination,
+    content: textForMap,
+    route_points: previewRoutePoints,
   }
 
   return (
@@ -179,6 +273,25 @@ function AIItineraryPage() {
 
             {(result || progressResult) && (
               <Paper elevation={3} sx={{ p: 3, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                <Box sx={{ mb: 2 }}>
+                  {previewRoutePoints.length > 0 ? (
+                    <MapSection itinerary={previewItinerary} />
+                  ) : (
+                    <Box sx={{
+                      height: 120,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'text.secondary',
+                      bgcolor: '#fafafa',
+                      border: '1px dashed #e0e0e0',
+                      borderRadius: 2
+                    }}>
+                      <CircularProgress size={20} sx={{ mr: 1.5 }} />
+                      <Typography variant="body2">地图加载中（正在生成路线点位）…</Typography>
+                    </Box>
+                  )}
+                </Box>
                 <div
                   className="result-content"
                   dangerouslySetInnerHTML={{ __html: formatResult(isLoading ? progressResult : result) }}

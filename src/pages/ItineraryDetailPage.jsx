@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useItinerary } from '../contexts/ItineraryContext'
 import { Container, Card, CardContent, Box, Typography, Paper, Divider, Button } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import MapSection from '../components/MapSection'
 
 function ItineraryDetailPage() {
   const { id } = useParams()
@@ -112,7 +113,12 @@ function ItineraryDetailPage() {
   // 简单的 Markdown 转 HTML（与规划页一致的基本格式）
   const formatContent = (text) => {
     if (!text) return ''
-    return text
+    // 展示时移除 route_points 的 JSON 代码块
+    const stripRoutePointsBlock = (t) => t.replace(/```json[\s\S]*?```/gi, (m) => (m.includes('route_points') || m.includes('"route_points"')) ? '' : m)
+    const cleaned = stripRoutePointsBlock(text)
+    // 去除行首的数字编号（如 1. 2. 3. / 1、/ 1．/ 1) / 1））保持时间等中间数字不受影响
+    const withoutLeadingNumbers = cleaned.replace(/^\s*\d+[\.\u3002\uFF0E\u3001\)\uff09]\s+/gm, '')
+    return withoutLeadingNumbers
       .replace(/^###\s+(.+)$/gm, '<h4>$1</h4>')
       .replace(/^##\s+(.+)$/gm, '<h3>$1</h3>')
       .replace(/^#\s+(.+)$/gm, '<h2>$1</h2>')
@@ -144,26 +150,10 @@ function ItineraryDetailPage() {
           </Box>
 
           <Box sx={{ p: 4 }}>
+
+            {/* 地图概览：从行程中提取位置点，自动绘制路线 */}
             <Box sx={{ mb: 3 }}>
-              <Typography variant="body1" color="text.secondary">
-                目的地：{itinerary.destination || '未指定'}
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-                日期：{(itinerary.start_date || itinerary.startDate || '未指定')} 至 {(itinerary.end_date || itinerary.endDate || '未指定')}
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-                人数：{itinerary.person_count || itinerary.personCount || 1} 人
-              </Typography>
-              {itinerary.budget && (
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-                  预算：{itinerary.budget}
-                </Typography>
-              )}
-              {Array.isArray(itinerary.interests) && itinerary.interests.length > 0 && (
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-                  兴趣偏好：{itinerary.interests.join('、')}
-                </Typography>
-              )}
+              <MapSection itinerary={itinerary} />
             </Box>
 
             <Divider sx={{ mb: 2 }}>
