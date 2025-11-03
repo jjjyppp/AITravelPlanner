@@ -94,10 +94,10 @@ docker pull crpi-huvkrb3dhht5ae00.cn-shanghai.personal.cr.aliyuncs.com/jinyupan/
 ```
 
 ```bash
-docker run --rm -p 80:80 crpi-huvkrb3dhht5ae00.cn-shanghai.personal.cr.aliyuncs.com/jinyupan/aitravelplanner:latest
+docker run --rm -p 8083:443 crpi-huvkrb3dhht5ae00.cn-shanghai.personal.cr.aliyuncs.com/jinyupan/aitravelplanner:latest
 ```
 
-应用将在 http://localhost:80 上运行。
+应用将在 https://localhost:8083 上运行（这是自签名证书，浏览器会有“不受信任”提示，选择继续访问即可）
 
 ## 项目结构
 
