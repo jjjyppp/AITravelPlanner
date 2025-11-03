@@ -44,6 +44,14 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # 使用 GitHub 的缓存，避免 ACR 403（个人版不支持 buildcache 清单）
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            VITE_AMAP_KEY=${{ secrets.VITE_AMAP_KEY }}
+            VITE_AMAP_SECURITY=${{ secrets.VITE_AMAP_SECURITY }}
+            VITE_LLM_API_KEY=${{ secrets.VITE_LLM_API_KEY }}
+            VITE_XF_APP_ID=${{ secrets.VITE_XF_APP_ID }}
+            VITE_XF_API_KEY=${{ secrets.VITE_XF_API_KEY }}
+            VITE_XF_API_SECRET=${{ secrets.VITE_XF_API_SECRET }}
+            VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
