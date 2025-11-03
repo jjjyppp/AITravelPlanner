@@ -2,12 +2,15 @@ name: Build & Push to ACR
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - master
+      - main
   workflow_dispatch:
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +32,7 @@ jobs:
           images: crpi-huvkrb3dhht5ae00.cn-shanghai.personal.cr.aliyuncs.com/jinyupan/aitravelplanner
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=master,enable={{is_default_branch}}
             type=raw,value=main,enable={{is_default_branch}}
             type=sha
 
@@ -40,5 +44,6 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # 使用 GitHub 的缓存，避免 ACR 403（个人版不支持 buildcache 清单）
           cache-from: type=gha
           cache-to: type=gha,mode=max
