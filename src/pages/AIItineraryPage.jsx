@@ -57,15 +57,16 @@ function AIItineraryPage() {
 \`\`\`json
 {
   "route_points": [
-    {"title": "名称", "lng": 116.3974, "lat": 39.9093, "day": 1, "time": "09:00", "order": 1}
+    {"title": "名称", "lng": 116.3974, "lat": 39.9093, "day": 1, "time": "09:00-10:30", "order": 1, "detail": "1-2 句具体游览/活动建议"}
   ]
 }
 \`\`\`
 - 严格要求：
   - 必须包含 "route_points" 字段（即使数组为空也必须输出，如 "route_points": []）。
-  - route_points 为数组，元素为对象；每个对象至少包含：title(字符串)、lng(数字)、lat(数字)。可选：day(数字)、time(字符串)、order(数字)。
+  - route_points 为数组，元素为对象；每个对象至少包含：title(字符串)、lng(数字)、lat(数字)、day(数字)、time(字符串，24 小时制区间，如 "HH:MM-HH:MM")。可选：order(数字)、detail(字符串 1-2 句具体行程说明)、start_time/end_time(字符串)。
   - lng/lat 必须是数值，lng 在前，lat 在后；取值范围：lng∈[-180,180]，lat∈[-90,90]。
   - 按行程发生顺序排列，尽量保证不少于 2 个点；若无法提供坐标，可返回空数组，但字段必须存在。
+  - time 不允许写“全天/All day”等模糊表述，务必给出区间；若提供了 start_time/end_time，也请填充组合后的 time。
   - 除了上述 JSON 代码块，不要输出任何额外注释或解释。
 `
 
@@ -123,7 +124,7 @@ function AIItineraryPage() {
           if (!Array.isArray(arr)) return out
           for (const p of arr) {
             if (!p) continue
-            let lng, lat, title
+            let lng, lat, title, time, detail
             if (Array.isArray(p) && p.length >= 2) {
               lng = Number(p[0]); lat = Number(p[1])
               title = p.title || p[2]
@@ -138,8 +139,14 @@ function AIItineraryPage() {
                 const pair = parsePair(p.location || p.location_text || '')
                 if (pair) { lng = pair.lng; lat = pair.lat }
               }
+              // 提取时间与详情
+              const start = (typeof p.start_time === 'string' && p.start_time) || ''
+              const end = (typeof p.end_time === 'string' && p.end_time) || ''
+              const joinTime = (s, e) => (s && e ? `${s}-${e}` : (typeof p.time === 'string' ? p.time : ''))
+              time = joinTime(start, end)
+              detail = (typeof p.detail === 'string' && p.detail) || (typeof p.notes === 'string' && p.notes) || (typeof p.description === 'string' && p.description) || ''
             }
-            if (Number.isFinite(lng) && Number.isFinite(lat)) out.push({ lng, lat, title, order: Number(p.order), day: Number(p.day) })
+            if (Number.isFinite(lng) && Number.isFinite(lat)) out.push({ lng, lat, title, time, detail, order: Number(p.order), day: Number(p.day) })
           }
           return out
         }
@@ -220,6 +227,33 @@ function AIItineraryPage() {
         }
       }
       routePoints = ensureDay(routePoints, text)
+
+      // 若仍缺少 time 字段，按照简单规则补齐（避免显示“全天”）：
+      const fillMissingTimes = (pts) => {
+        const byDay = new Map()
+        pts.forEach(p => {
+          const d = Number(p.day) > 0 ? Number(p.day) : 1
+          if (!byDay.has(d)) byDay.set(d, [])
+          byDay.get(d).push(p)
+        })
+        const pad = (n) => String(n).padStart(2, '0')
+        byDay.forEach(list => {
+          list.sort((a,b) => (Number(a.order)||0) - (Number(b.order)||0))
+          const startHour = 9
+          const slot = Math.max(60, Math.floor(720 / Math.max(1, list.length))) // 12 小时窗口，至少 60 分钟
+          list.forEach((p, idx) => {
+            if (typeof p.time === 'string' && p.time.includes(':')) return
+            const sh = startHour + Math.floor((slot * idx) / 60)
+            const sm = (slot * idx) % 60
+            const eh = startHour + Math.floor((slot * (idx + 1)) / 60)
+            const em = (slot * (idx + 1)) % 60
+            p.time = `${pad(sh)}:${pad(sm)}-${pad(eh)}:${pad(em)}`
+          })
+        })
+        return pts
+      }
+
+      routePoints = fillMissingTimes(routePoints)
 
       const payload = {
         title,

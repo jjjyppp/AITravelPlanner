@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useItinerary } from '../contexts/ItineraryContext'
 import { Container, Card, CardContent, Box, Typography, Paper, Divider, Button } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import AccessTimeIcon from '@mui/icons-material/AccessTime'
+import PlaceIcon from '@mui/icons-material/Place'
 import MapSection from '../components/MapSection'
 
 function ItineraryDetailPage() {
@@ -145,6 +147,30 @@ function ItineraryDetailPage() {
       .replace(/^(.*?)$/m, '<p>$1</p>')
   }
 
+  // 基于 route_points 构建“每日活动”结构，便于以卡片样式展示
+  const buildDaysFromRoutePoints = (rp) => {
+    if (!Array.isArray(rp) || rp.length === 0) return []
+    const groups = new Map()
+    rp.forEach((p, idx) => {
+      const d = Number(p.day) > 0 ? Number(p.day) : 1
+      if (!groups.has(d)) groups.set(d, [])
+      const title = p.title || p.name || p.label || p.address || p.location_text || `第${idx + 1}站`
+      groups.get(d).push({
+        order: Number.isFinite(Number(p.order)) ? Number(p.order) : idx + 1,
+        time: typeof p.time === 'string' ? p.time : '',
+        description: title,
+        location: p.address || p.location_text || ''
+      })
+    })
+    return Array.from(groups.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([day, items]) => ({ day, title: `第 ${day} 天`, activities: items.sort((a, b) => a.order - b.order) }))
+  }
+
+  const displayDays = (Array.isArray(itinerary?.route_points) && itinerary.route_points.length)
+    ? buildDaysFromRoutePoints(itinerary.route_points)
+    : (Array.isArray(itinerary?.days) ? itinerary.days : [])
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Card elevation={0} sx={{ overflow: 'hidden', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
@@ -169,17 +195,38 @@ function ItineraryDetailPage() {
               <Typography variant="h6" color="text.secondary">行程内容</Typography>
             </Divider>
 
-            {Array.isArray(itinerary?.days) && itinerary.days.length > 0 ? (
+            {Array.isArray(displayDays) && displayDays.length > 0 ? (
               <Paper elevation={3} sx={{ p: 3, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                {itinerary.days.map((day, idx) => (
-                  <Box key={idx} sx={{ mb: 3 }}>
-                    <Typography variant="h6" sx={{ color: '#1565c0', mb: 1 }}>第 {day.day} 天</Typography>
-                    {Array.isArray(day.activities) && day.activities.map((a, i) => (
-                      <Box key={i} sx={{ display: 'flex', gap: 2, mb: 1.2 }}>
-                        <Typography variant="body2" sx={{ minWidth: 72, color: 'text.secondary' }}>{a.time}</Typography>
-                        <Typography variant="body1">{a.description}{a.location ? `（${a.location}）` : ''}</Typography>
-                      </Box>
-                    ))}
+                {displayDays.map((day, idx) => (
+                  <Box key={idx} className="itinerary-day-card" sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#0f172a', mb: 1.5, fontWeight: 700 }}>{day.title || `第 ${day.day} 天`}</Typography>
+                    <Divider sx={{ mb: 2 }} />
+                    <Box className="activity-list">
+                      {(Array.isArray(day.activities) ? day.activities : []).map((a, i) => {
+                        const clean = (t) => (t || '').replace(/（.*?）/g, '').trim()
+                        const desc = clean(a.description)
+                        const isMeal = /早\s*餐|午\s*餐|晚\s*餐|美食|餐厅|用餐/i.test(desc)
+                        const isStay = /酒店|民宿|入住|check[-\s]*in/i.test(desc)
+                        const isTraffic = /地铁|巴士|公交|火车|高铁|航班|出发|抵达|车站|机场|换乘/i.test(desc)
+                        const tag = isMeal ? '用餐' : (isStay ? '住宿' : (isTraffic ? '交通' : '游览'))
+                        const chipClass = isMeal ? 'chip-food' : (isStay ? 'chip-stay' : (isTraffic ? 'chip-traffic' : 'chip-visit'))
+                        return (
+                          <Box key={i} className="activity-item">
+                            <Box className="activity-badge">{i + 1}</Box>
+                            <Box className="activity-time"><AccessTimeIcon fontSize="small" /><span>{a.time || '全天'}</span></Box>
+                            <Box className="activity-content">
+                              <Box className="activity-title-row">
+                                <Typography className="activity-title">{desc}</Typography>
+                                <span className={`activity-chip ${chipClass}`}>{tag}</span>
+                              </Box>
+                              {a.location && (
+                                <Box className="activity-loc"><PlaceIcon fontSize="small" /><span>{a.location}</span></Box>
+                              )}
+                            </Box>
+                          </Box>
+                        )
+                      })}
+                    </Box>
                   </Box>
                 ))}
               </Paper>

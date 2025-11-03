@@ -1,31 +1,25 @@
 # AI 旅行规划师 (AI Travel Planner)
 
-说明：软件旨在简化旅行规划过程，通过 AI 了解用户需求，自动生成详细的旅行路线与建议，并提供语音输入、地图可视化与费用管理等辅助能力。
+一个基于React的智能旅行规划应用，通过AI技术帮助用户快速规划旅行行程，管理预算，并提供实时旅行辅助。
 
-## 核心功能（简要）
+## 核心功能
 
-- 智能行程规划
-  - 语音或文字输入旅行需求（目的地、日期、预算、人数、偏好）。
-  - 由大语言模型生成个性化行程，覆盖交通、住宿、景点、餐饮与建议。
-- 地图概览与路线
-  - 使用地图组件绘制路线；点位旁显示名称。
-  - 支持“按天”切换查看每天的线路；自动缩放以适配视野。
-- 费用预算与管理
-  - 按行程记录支出（类别/金额/日期/备注）；支持语音辅助录入。
-  - 支持新增、删除与行内编辑；按类别生成统计图表。
-- 用户与云端
-  - 账号登录/注册；保存多份行程与开销记录。
-  - 数据云端同步，便于跨设备查看与修改。
+1. **智能行程规划**：支持文字和语音输入旅行需求（目的地、日期、预算、人数、偏好），AI自动生成个性化旅行路线
+2. **费用预算与管理**：AI进行预算分析，记录旅行开销（支持语音输入）
+3. **用户管理与数据存储**：用户可以注册登录，保存和管理多份旅行计划，实现云端同步
+4. **AI 旅行规划增强**：集成大语言模型提供更智能、详细的行程规划和预算估计
 
-## 技术栈（Web）
+## 技术栈
 
-- 前端：React 19 + Vite + React Router
-- UI：Material-UI (@mui/material)；CSS 变量与响应式样式
-- 地图：高德地图 JS API v2.0
-- 大模型：OpenAI SDK（对接 Doubao Seed）
-- 语音识别：科大讯飞 WebSocket API（语音转文本）
-- 数据/认证：Supabase（认证与数据存储）
-- 可视化：Chart.js + react-chartjs-2（费用分类统计）
+- **前端框架**：React 19
+- **UI组件库**：Material-UI (@mui/material)
+- **路由管理**：React Router
+- **图表可视化**：Chart.js + react-chartjs-2
+- **样式处理**：CSS变量 + 响应式设计
+- **语音识别**：讯飞语音识别 API
+- **大语言模型**：火山引擎doubao API
+- **认证和数据库**：Supabase API
+- **地图路线**：高德地图 API
 
 ## 快速开始
 
@@ -35,32 +29,6 @@
 npm install
 ```
 
-### 配置 API Key（重要）
-
-切记不要将任何 API Key 写入源码或提交到仓库。请使用以下安全方式配置：
-
-- 方式 A：使用 Vite 环境变量（推荐，不会被提交）
-  1) 在项目根目录创建 `.env.local`（已在 `.gitignore` 忽略）。
-  2) 写入：
-  
-  ```env
-  # 高德地图 Web API
-  VITE_AMAP_KEY=your_map_key
-  VITE_AMAP_SECURITY=your_map_security
-
-  # doubao 
-  VITE_LLM_API_KEY=your_llm_api_key
-
-  # 讯飞语音识别
-  VITE_XF_APP_ID=your_xf_app_id
-  VITE_XF_API_KEY=your_xf_api_key
-  VITE_XF_API_SECRET=your_xf_api_secret
-
-  # Supabase
-  VITE_SUPABASE_URL=your_supabase_url
-  VITE_SUPABASE_ANON_KEY=your_supabase_anno_key
-  ```
-  
 ### 开发模式运行
 
 ```bash
@@ -79,37 +47,50 @@ npm run build
 npm run preview
 ```
 
+## Docker 部署
+可通过以下命令下载并运行 docker image
+
+```bash
+docker pull crpi-huvkrb3dhht5ae00.cn-shanghai.personal.cr.aliyuncs.com/jinyupan/aitravelplanner:latest
+```
+
+```bash
+docker run --rm -p 80:80 crpi-huvkrb3dhht5ae00.cn-shanghai.personal.cr.aliyuncs.com/jinyupan/aitravelplanner:latest
+```
+
+应用将在 http://localhost:80 上运行。
+
 ## 项目结构
 
 ```
 .
 ├── src/
-│   ├── App.jsx                 # 根组件
-│   ├── main.jsx                # 入口文件
-│   ├── index.css               # 全局样式
-│   ├── App.css                 # 应用样式
-│   ├── assets/                 # 静态资源
+│   ├── App.jsx                  # 根组件
+│   ├── main.jsx                 # 入口文件
+│   ├── index.css                # 全局样式
+│   ├── App.css                  # 应用样式与行程卡片样式
+│   ├── assets/                  # 静态资源
 │   ├── components/
-│   │   ├── MapSection.jsx      # 地图：标注名称、折线、按天切换
-│   │   ├── SpeechRecognition.jsx  # 语音输入组件
+│   │   ├── MapSection.jsx       # 地图：标注名称、折线、按天切换、fitView
+│   │   ├── SpeechRecognition.jsx# 语音输入组件（科大讯飞 WebSocket）
 │   │   └── SpeechRecognition.css
 │   ├── contexts/
-│   │   ├── AuthContext.jsx       # 认证上下文
-│   │   └── ItineraryContext.jsx  # 行程 CRUD 封装
+│   │   ├── AuthContext.jsx      # 认证上下文
+│   │   └── ItineraryContext.jsx # 行程 CRUD 封装（含 route_points 持久化）
 │   ├── pages/
-│   │   ├── HomePage.jsx          # 首页：表单/自然语言/语音入口
-│   │   ├── AIItineraryPage.jsx   # AI 生成页：一次性渲染与地图预览
-│   │   ├── ItineraryDetailPage.jsx # 行程详情：地图+内容
-│   │   ├── MyTripsPage.jsx       # 我的行程列表
-│   │   ├── ExpensePage.jsx       # 旅行开销：增删改+统计
-│   │   ├── LoginPage.jsx         # 登录
-│   │   └── RegisterPage.jsx      # 注册
+│   │   ├── HomePage.jsx         # 首页：表单/自然语言/语音入口
+│   │   ├── AIItineraryPage.jsx  # AI 生成页：一次性渲染、地图预览、保存行程
+│   │   ├── ItineraryDetailPage.jsx # 行程详情：地图+“每日卡片”视图（支持 route_points）
+│   │   ├── MyTripsPage.jsx      # 我的行程列表
+│   │   ├── ExpensePage.jsx      # 旅行开销：新增/删除/编辑+分类统计
+│   │   ├── LoginPage.jsx        # 登录
+│   │   └── RegisterPage.jsx     # 注册
 │   ├── services/
-│   │   ├── llmService.js         # 大模型服务封装（Doubao/OpenAI SDK）
+│   │   ├── llmService.js        # 大模型服务封装（Doubao/OpenAI SDK）
 │   │   └── xunfeiSpeechService.js # 讯飞 WebSocket 语音封装
 │   ├── config/
-│   │   └── supabase.js           # Supabase 环境变量配置
-│   └── supabase.js               # Supabase 客户端与常用方法
+│   │   └── supabase.js          # Supabase 环境变量配置
+│   └── supabase.js              # Supabase 客户端与常用方法
 ├── public/
 ├── package.json
 ├── vite.config.js

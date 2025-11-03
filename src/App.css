@@ -374,6 +374,101 @@ input, textarea, select {
   font-weight: bold;
 }
 
+/* Detail page nice looking itinerary cards */
+.itinerary-day-card {
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.activity-list { margin-top: 8px; }
+
+.activity-item {
+  display: grid;
+  grid-template-columns: 28px 120px 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: #f8fbff;
+  border: 1px solid #e6f0ff;
+  border-radius: 10px;
+  position: relative;
+}
+
+.activity-item::before {
+  content: '';
+  position: absolute;
+  left: 14px; /* 与 badge 居中对齐 */
+  top: -8px;
+  bottom: -8px;
+  width: 2px;
+  background: #dbeafe;
+}
+
+.activity-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.activity-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.activity-time span {
+  background: #e8f1ff;
+  border: 1px solid #d6e6ff;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.activity-title {
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.activity-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.activity-loc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.activity-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.activity-chip.chip-visit { background: #ecfeff; color: #155e75; border-color: #cffafe; }
+.activity-chip.chip-food { background: #fff7ed; color: #92400e; border-color: #ffedd5; }
+.activity-chip.chip-stay { background: #f1f5f9; color: #0f172a; border-color: #e2e8f0; }
+.activity-chip.chip-traffic { background: #f0f9ff; color: #1d4ed8; border-color: #dbeafe; }
+
 /* 预算部分样式 */
 .budget-section {
   background-color: var(--card-background);
