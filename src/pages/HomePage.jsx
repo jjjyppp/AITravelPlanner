@@ -213,7 +213,9 @@ function HomePage() {
                   type="text"
                   id="destination"
                   value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
+                  inputMode="text"
+                  pattern="[^0-9]*"
+                  onChange={(e) => { const v = (e.target.value || '').replace(/[0-9]/g, ''); setDestination(v) }}
                   placeholder="例如：日本/北京/三亚"
                   className="form-control"
                 />
@@ -221,10 +223,14 @@ function HomePage() {
               <div className="form-group col-md-6">
                 <label htmlFor="travelers" className="form-label">人数*</label>
                 <input
-                  type="text"
+                  type="number"
                   id="travelers"
                   value={travelers}
-                  onChange={(e) => setTravelers(e.target.value)}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="1"
+                  step="1"
+                  onChange={(e) => { const v = (e.target.value || '').replace(/\\D/g, ''); setTravelers(v) }}
                   placeholder="例如：2"
                   className="form-control"
                 />
@@ -238,7 +244,7 @@ function HomePage() {
                   type="date"
                   id="startDate"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => { const v = e.target.value; setStartDate(v); if (endDate && v && endDate < v) { setEndDate(v) } }}
                   className="form-control"
                 />
               </div>
@@ -248,6 +254,7 @@ function HomePage() {
                   type="date"
                   id="endDate"
                   value={endDate}
+                  min={startDate || undefined}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="form-control"
                 />
@@ -270,13 +277,17 @@ function HomePage() {
 
             <div className="form-row mt-3">
               <div className="form-group col-md-12">
-                <label htmlFor="budget" className="form-label">预算范围</label>
+                <label htmlFor="budget" className="form-label">旅行预算</label>
                 <input
-                  type="text"
+                  type="number"
                   id="budget"
                   value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  placeholder="例如：1万元"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  min="0"
+                  step="1"
+                  onChange={(e) => { const v = (e.target.value || '').replace(/\\D/g, ''); setBudget(v) }}
+                  placeholder="例如：1000"
                   className="form-control"
                 />
               </div>

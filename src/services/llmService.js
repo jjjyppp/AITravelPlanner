@@ -261,6 +261,8 @@ const promptAddon = `
         ],
         model: 'doubao-1-5-pro-256k-250115',
         reasoning_effort: "medium",
+        // 提高生成上限，避免长文被截断（模型上限 12k）
+        max_tokens: 10000,
       });
 
       // 只返回最终结果，不包含思考过程
@@ -294,6 +296,7 @@ const promptAddon = `
         model: 'doubao-1-5-pro-256k-250115',
         reasoning_effort: "medium",
         stream: true,
+        max_tokens: 10000,
       });
 
       let fullResponse = '';
