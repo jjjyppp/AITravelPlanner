@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+﻿import { useState } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
-function LoginPage() {
+export default function LoginPage() {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -10,6 +10,7 @@ function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuth()
   
   const handleChange = (e) => {
@@ -44,8 +45,8 @@ function LoginPage() {
       const result = await login(formData.email, formData.password)
       
       if (result.success) {
-        // 登录成功，跳转首页
-        navigate('/')
+        const redirectTo = location.state?.redirectTo || '/'
+        navigate(redirectTo)
       } else {
         setError(result.error || '登录失败，请重试')
       }
@@ -115,4 +116,3 @@ function LoginPage() {
   )
 }
 
-export default LoginPage

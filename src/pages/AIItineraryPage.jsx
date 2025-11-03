@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Box, Button, Card, CardContent, Container, Divider, Paper, Snackbar, Alert, Typography, CircularProgress } from '@mui/material'
 import LLMService from '../services/llmService'
@@ -311,7 +311,7 @@ function AIItineraryPage() {
       .replace(/^\s*-\s+(.+)$/gm, '<li style="margin-bottom: 0.5em;">$1</li>')
       .replace(/(<li[^>]*>.*?<\/li>)+/gs, '<ul style="margin-top: 0.5em; margin-bottom: 1em; padding-left: 1.5em;">$&</ul>')
       .replace(/^\s*(?:\d+)[\.\u3002\uFF0E\u3001\)\uff09]\s+(.+)$/gm, '<li style="margin-bottom: 0.5em;">$1</li>')
-      .replace(/(<li[^>]*>.*?<\/li>)+/gs, function(match){ if (match.includes('ol>')) return match; return '<ol style="margin-top: 0.5em; margin-bottom: 1em; padding-left: 1.5em;">' + match + '</ol>' })
+      .replace(/(<li[^>]*>.*?<\/li>)+/gs, function(match){ if (match.includes('ol>')) return match; return '<ol style="list-style: none; margin-top: 0.5em; margin-bottom: 1em; padding-left: 1.5em;">' + match + '</ol>' })
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/\n{2,}/g, '</p><p>')

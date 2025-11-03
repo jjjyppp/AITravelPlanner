@@ -21,7 +21,33 @@
 - **认证和数据库**：Supabase API
 - **地图路线**：高德地图 API
 
-## 快速开始
+## 本地开发
+
+### 配置 API Key
+
+切记不要将任何 API Key 写入源码或提交到仓库。请使用以下安全方式配置：
+
+使用 Vite 环境变量（推荐，不会被提交）
+  1) 在项目根目录创建 `.env.local`（已在 `.gitignore` 忽略）。
+  2) 写入：
+  
+  ```env
+  # 高德地图 Web API
+  VITE_AMAP_KEY=your_map_key
+  VITE_AMAP_SECURITY=your_map_security
+
+  # doubao 
+  VITE_LLM_API_KEY=your_llm_api_key
+
+  # 讯飞语音识别
+  VITE_XF_APP_ID=your_xf_app_id
+  VITE_XF_API_KEY=your_xf_api_key
+  VITE_XF_API_SECRET=your_xf_api_secret
+
+  # Supabase
+  VITE_SUPABASE_URL=your_supabase_url
+  VITE_SUPABASE_ANON_KEY=your_supabase_anno_key
+  ```
 
 ### 安装依赖
 
@@ -48,7 +74,20 @@ npm run preview
 ```
 
 ## Docker 部署
-可通过以下命令下载并运行 docker image
+已在 GitHub 仓库中配置了应用所需的 secret，各 secret 的名称及其对应的说明如下：
+
+**ACR_USERNAME**：阿里云容器镜像服务用户名
+**ACR_PASSWORD**：ACR 密码
+**VITE_AMAP_KEY**：高德地图 API key
+**VITE_AMAP_SECURITY**：高德地图安全密钥
+**VITE_LLM_API_KEY**：豆包 API key
+**VITE_XF_APP_ID**：讯飞 App ID
+**VITE_XF_API_KEY**：讯飞 API key
+**VITE_XF_API_SECRET**：讯飞 API secret
+**VITE_SUPABASE_URL**：Supabase URL
+**VITE_SUPABASE_ANON_KEY**：Supabase anon key
+
+可通过以下命令下载并运行 Docker 镜像
 
 ```bash
 docker pull crpi-huvkrb3dhht5ae00.cn-shanghai.personal.cr.aliyuncs.com/jinyupan/aitravelplanner:latest
